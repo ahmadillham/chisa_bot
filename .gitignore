@@ -1,6 +1,12 @@
 # Binary
 chisabot
 chisabot.exe
+bot
+main
+
+# IDE
+.vscode/
+.idea/
 
 # Database & Data
 session.db
