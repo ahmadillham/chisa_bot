@@ -155,11 +155,6 @@ func handleMessage(
 		return
 	}
 
-	// Only work in groups.
-	if !evt.Info.IsGroup {
-		return
-	}
-
 	// Extract text from various message types.
 	text := utils.GetTextFromMessage(evt)
 	if text == "" {
