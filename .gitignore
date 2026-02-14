@@ -1,0 +1,13 @@
+# Binary
+chisabot
+chisabot.exe
+
+# Database & Data
+session.db
+session.db-wal
+session.db-shm
+data/
+
+# OS specific
+.DS_Store
+Thumbs.db
