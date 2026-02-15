@@ -24,26 +24,6 @@ func (h *MenuHandler) HandleMenu(client *whatsmeow.Client, evt *events.Message) 
 📋 *Daftar Perintah*
 Prefix: . ! /
 
-━━━ 🎮 *Games* ━━━
-• .tebakkata
-  _Susun kata acak menjadi benar_
-• .tebakibukota
-  _Tebak ibu kota negara_
-• .tebaknegara
-  _Tebak negara dari clue_
-• .tebakbenda
-  _Tebak benda dari clue_
-• .tebakbendera
-  _Tebak nama negara dari bendera_
-• .tebakangka
-  _Tebak angka 1-100 (Higher/Lower)_
-• .kuis
-  _Kuis pengetahuan umum_
-• .nyerah / .skip
-  _Menyerah / lewati pertanyaan_
-• .leaderboard / .lb
-  _Cek klasemen mingguan_
-
 ━━━ 🖼️ *Media* ━━━
 • .sticker (.s)
   _Ubah gambar/video/GIF jadi sticker_
@@ -63,23 +43,6 @@ Prefix: . ! /
   _Mention semua anggota (Admin only)_
 • .kick <member>
   _Kick member (Admin only)_
-  
-━━━ 🎮 *Fun* ━━━
-• .cekkhodam <nama>
-  _Cek khodam kamu_
-• .cekjodoh <nama1> <nama2>
-  _Cek kecocokan jodoh_
-• .kerangajaib <tanya>
-  _Tanya kerang ajaib_
-• .siapadia <tanya>
-  _Random pick anggota grup_
-• .rate <sesuatu>
-  _Rating random 0-100_
-• .roast <nama>
-  _Roasting lucu_
-• .seberapa <sifat> <nama>
-  _Seberapa X kamu?_
-
 
 ━━━ 🛠️ *Lainnya* ━━━
 • .short <link>

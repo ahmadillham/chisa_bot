@@ -18,7 +18,6 @@ import (
 
 	"chisa_bot/internal/handlers"
 	"chisa_bot/internal/router"
-	"chisa_bot/internal/services"
 	"chisa_bot/pkg/ratelimit"
 	"chisa_bot/pkg/utils"
 )
@@ -44,14 +43,9 @@ func main() {
 	mediaHandler := handlers.NewMediaHandler()
 	dlHandler := handlers.NewDownloaderHandler()
 	groupHandler := handlers.NewGroupHandler()
-	funHandler := handlers.NewFunHandler()
 	menuHandler := handlers.NewMenuHandler()
 	sysHandler := handlers.NewSystemHandler()
 	limiter := ratelimit.New(3*time.Second, 20, time.Minute)
-
-	// Game Handler
-	gameStore := services.NewGameStore("data/leaderboard.json")
-	gameHandler := handlers.NewGameHandler(gameStore)
 
 	// Utility handler.
 	utilHandler := handlers.NewUtilityHandler()
@@ -68,7 +62,7 @@ func main() {
 						log.Printf("[PANIC RECOVERED] %v", r)
 					}
 				}()
-				handleMessage(client, evt, mediaHandler, dlHandler, groupHandler, funHandler, menuHandler, sysHandler, limiter, gameHandler, utilHandler)
+				handleMessage(client, evt, mediaHandler, dlHandler, groupHandler, menuHandler, sysHandler, limiter, utilHandler)
 			}()
 
 		case *events.GroupInfo:
@@ -143,11 +137,9 @@ func handleMessage(
 	media *handlers.MediaHandler,
 	dl *handlers.DownloaderHandler,
 	group *handlers.GroupHandler,
-	fun *handlers.FunHandler,
 	menu *handlers.MenuHandler,
 	sys *handlers.SystemHandler,
 	limiter *ratelimit.Limiter,
-	game *handlers.GameHandler,
 	util *handlers.UtilityHandler,
 ) {
 	// Ignore messages from self.
@@ -161,15 +153,9 @@ func handleMessage(
 		return
 	}
 
-
-
-
-
 	// Parse the command.
 	parsed := router.Parse(text)
 	if parsed == nil {
-		// Check for game answer if no command prefix
-		game.HandleAnswer(client, evt)
 		return
 	}
 
@@ -207,52 +193,11 @@ func handleMessage(
 	case "kick", "usir":
 		group.HandleKick(client, evt, parsed.Args)
 
-	// Fun commands
-	case "kerangajaib":
-		fun.HandleKerangAjaib(client, evt, parsed.RawArgs)
-	case "cekkhodam":
-		fun.HandleCekKhodam(client, evt, parsed.RawArgs)
-	case "cekjodoh":
-		fun.HandleCekJodoh(client, evt, parsed.Args)
-	case "rate":
-		fun.HandleRate(client, evt, parsed.RawArgs)
-	case "roast":
-		fun.HandleRoast(client, evt, parsed.RawArgs)
-	case "siapadia":
-		fun.HandleSiapaDia(client, evt, parsed.RawArgs)
-	case "seberapa":
-		fun.HandleSeberapa(client, evt, parsed.RawArgs)
-
-
 	// Info commands
 	case "menu", "help":
 		menu.HandleMenu(client, evt)
 	case "stats", "server", "stat":
 		sys.HandleStats(client, evt)
-
-
-
-
-
-	// Game commands
-	case "tebakkata":
-		game.HandleTebakKata(client, evt)
-	case "tebakibukota":
-		game.HandleTebakIbuKota(client, evt)
-	case "tebaknegara":
-		game.HandleTebakNegara(client, evt)
-	case "tebakbenda":
-		game.HandleTebakBenda(client, evt)
-	case "tebakbendera":
-		game.HandleTebakBendera(client, evt)
-	case "tebakangka":
-		game.HandleTebakAngka(client, evt)
-	case "kuis":
-		game.HandleTebakKuis(client, evt)
-	case "nyerah", "skip":
-		game.HandleNyerah(client, evt)
-	case "leaderboard", "lb":
-		game.HandleLeaderboard(client, evt)
 
 	// Utility commands
 	case "pick", "pilih":
