@@ -42,22 +42,13 @@ func (h *SystemHandler) HandleStats(client *whatsmeow.Client, evt *events.Messag
 	runtime.ReadMemStats(&memStats)
 	botMemMB := float64(memStats.Alloc) / 1024 / 1024
 
-	stats := fmt.Sprintf(`📊 *Server Stats*
-
-━━━ 🧠 *CPU* ━━━
-• Model: %s (%d Cores)
-
-━━━ 💾 *RAM* ━━━
-• Total: %s
-• Used: %s
-
-━━━ ⏱️ *Uptime* ━━━
-• Server: %s
-
-━━━ 🤖 *Bot* ━━━
-• Memory: %.2f MB`,
+	stats := fmt.Sprintf(`Server Stats
+CPU: %s (%d Cores)
+RAM: %s / %s
+Uptime: %s
+Bot Mem: %.2f MB`,
 		cpuModel, cpuCores,
-		totalRAM, usedRAM,
+		usedRAM, totalRAM,
 		sysUptime,
 		botMemMB,
 	)
