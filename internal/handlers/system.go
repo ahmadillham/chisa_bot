@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"runtime"
 	"strings"
@@ -26,25 +25,14 @@ func NewSystemHandler() *SystemHandler {
 	}
 }
 
-// HandleStats sends server stats (OS, RAM, CPU, Uptime).
+// HandleStats sends server stats (CPU, RAM, Uptime).
 func (h *SystemHandler) HandleStats(client *whatsmeow.Client, evt *events.Message) {
-	// Bot uptime
-	uptime := time.Since(h.startTime)
-	uptimeStr := formatDuration(uptime)
-
-	// OS info
-	osName := runtime.GOOS + "/" + runtime.GOARCH
-	hostname, _ := os.Hostname()
-
-	// Distro info (Linux)
-	distro := getDistroName()
-
 	// CPU info
 	cpuModel := getCPUModel()
 	cpuCores := runtime.NumCPU()
 
 	// RAM info
-	totalRAM, usedRAM, freeRAM := getMemoryInfo()
+	totalRAM, usedRAM, _ := getMemoryInfo()
 
 	// System uptime
 	sysUptime := getSystemUptime()
@@ -56,38 +44,25 @@ func (h *SystemHandler) HandleStats(client *whatsmeow.Client, evt *events.Messag
 
 	stats := fmt.Sprintf(`📊 *Server Stats*
 
-━━━ 💻 *System* ━━━
-• OS: %s
-• Distro: %s
-• Hostname: %s
-
 ━━━ 🧠 *CPU* ━━━
-• Model: %s
-• Cores: %d
+• Model: %s (%d Cores)
 
 ━━━ 💾 *RAM* ━━━
 • Total: %s
 • Used: %s
-• Free: %s
 
 ━━━ ⏱️ *Uptime* ━━━
 • Server: %s
-• Bot: %s
 
 ━━━ 🤖 *Bot* ━━━
-• Memory: %.2f MB
-• Go: %s
-• Goroutines: %d`,
-		osName, distro, hostname,
+• Memory: %.2f MB`,
 		cpuModel, cpuCores,
-		totalRAM, usedRAM, freeRAM,
-		sysUptime, uptimeStr,
-		botMemMB, runtime.Version(), runtime.NumGoroutine(),
+		totalRAM, usedRAM,
+		sysUptime,
+		botMemMB,
 	)
 
-	if err := utils.ReplyText(client, evt, stats); err != nil {
-		log.Printf("[stats] failed to reply: %v", err)
-	}
+	utils.ReplyText(client, evt, stats)
 }
 
 func formatDuration(d time.Duration) string {

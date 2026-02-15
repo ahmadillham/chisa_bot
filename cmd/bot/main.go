@@ -47,9 +47,6 @@ func main() {
 	sysHandler := handlers.NewSystemHandler()
 	limiter := ratelimit.New(3*time.Second, 20, time.Minute)
 
-	// Utility handler.
-	utilHandler := handlers.NewUtilityHandler()
-
 	// Register the main event handler.
 	client.AddEventHandler(func(rawEvt interface{}) {
 		switch evt := rawEvt.(type) {
@@ -62,7 +59,7 @@ func main() {
 						log.Printf("[PANIC RECOVERED] %v", r)
 					}
 				}()
-				handleMessage(client, evt, mediaHandler, dlHandler, groupHandler, menuHandler, sysHandler, limiter, utilHandler)
+				handleMessage(client, evt, mediaHandler, dlHandler, groupHandler, menuHandler, sysHandler, limiter)
 			}()
 
 		case *events.GroupInfo:
@@ -140,7 +137,6 @@ func handleMessage(
 	menu *handlers.MenuHandler,
 	sys *handlers.SystemHandler,
 	limiter *ratelimit.Limiter,
-	util *handlers.UtilityHandler,
 ) {
 	// Ignore messages from self.
 	if evt.Info.IsFromMe {
@@ -162,10 +158,8 @@ func handleMessage(
 	// Rate limit check.
 	switch limiter.Check(evt.Info.Sender.String(), evt.Info.Chat.String()) {
 	case ratelimit.UserCooldown:
-		// Silently ignore — don't even reply to avoid more messages.
 		return
 	case ratelimit.ChatRateLimit:
-		// Silently ignore.
 		return
 	}
 
@@ -173,38 +167,24 @@ func handleMessage(
 
 	// Route to appropriate handler.
 	switch parsed.Command {
-	// Media commands
 	case "sticker", "s":
 		media.HandleSticker(client, evt)
 	case "toimg":
 		media.HandleStickerToImage(client, evt)
 	case "show", "showimg", "rv":
 		media.HandleRetrieveViewOnce(client, evt)
-
-	// Downloader commands (Smart DL)
 	case "dl", "tiktok", "tt", "ig", "instagram", "ytmp4":
 		dl.HandleVideo(client, evt, parsed.Args)
 	case "mp3", "ytmp3":
 		dl.HandleAudio(client, evt, parsed.Args)
-
-	// Group commands
 	case "tagall":
 		group.HandleTagAll(client, evt)
 	case "kick", "usir":
 		group.HandleKick(client, evt, parsed.Args)
-
-	// Info commands
 	case "menu", "help":
 		menu.HandleMenu(client, evt)
 	case "stats", "server", "stat":
 		sys.HandleStats(client, evt)
-
-	// Utility commands
-	case "pick", "pilih":
-		util.HandlePick(client, evt, parsed.RawArgs)
-	case "short", "shorten", "pendek":
-		util.HandleShortLink(client, evt, parsed.Args)
-
 	default:
 		// Unknown command — silently ignore.
 	}
