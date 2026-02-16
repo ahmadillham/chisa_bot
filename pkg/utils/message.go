@@ -49,8 +49,8 @@ func SimulateTyping(client *whatsmeow.Client, chatJID types.JID) {
 	// Send "typing" presence
 	client.SendChatPresence(context.Background(), chatJID, types.ChatPresenceComposing, types.ChatPresenceMediaText)
 
-	// Random delay 500ms - 1500ms
-	ms := 500 + rand.Intn(1000)
+	// Random delay 3000ms - 5000ms (3s - 5s)
+	ms := 3000 + rand.Intn(2000)
 	time.Sleep(time.Duration(ms) * time.Millisecond)
 
 	// Send "paused" presence
