@@ -4,8 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	"math/rand"
+	"time"
+
 	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
+	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
 )
@@ -39,8 +43,23 @@ func newContextInfo(evt *events.Message) *waProto.ContextInfo {
 	}
 }
 
+// SimulateTyping adds a random delay (0.5s - 1.5s) to mimic human behavior.
+// It also sends a "coding/recording" presence update.
+func SimulateTyping(client *whatsmeow.Client, chatJID types.JID) {
+	// Send "typing" presence
+	client.SendChatPresence(context.Background(), chatJID, types.ChatPresenceComposing, types.ChatPresenceMediaText)
+
+	// Random delay 500ms - 1500ms
+	ms := 500 + rand.Intn(1000)
+	time.Sleep(time.Duration(ms) * time.Millisecond)
+
+	// Send "paused" presence
+	client.SendChatPresence(context.Background(), chatJID, types.ChatPresencePaused, types.ChatPresenceMediaText)
+}
+
 // ReplyText sends a text reply to the message that triggered it.
 func ReplyText(client *whatsmeow.Client, evt *events.Message, text string) error {
+	SimulateTyping(client, evt.Info.Chat)
 	msg := &waProto.Message{
 		ExtendedTextMessage: &waProto.ExtendedTextMessage{
 			Text:        proto.String(text),
@@ -53,6 +72,7 @@ func ReplyText(client *whatsmeow.Client, evt *events.Message, text string) error
 
 // ReplyTextWithMentions sends a text reply with specific mentions.
 func ReplyTextWithMentions(client *whatsmeow.Client, evt *events.Message, text string, mentions []string) error {
+	SimulateTyping(client, evt.Info.Chat)
 	ctxInfo := newContextInfo(evt)
 	ctxInfo.MentionedJID = mentions
 
@@ -68,6 +88,7 @@ func ReplyTextWithMentions(client *whatsmeow.Client, evt *events.Message, text s
 
 // ReplyImage sends an image reply.
 func ReplyImage(client *whatsmeow.Client, evt *events.Message, imageData []byte, mimetype string, caption string) error {
+	SimulateTyping(client, evt.Info.Chat)
 	uploaded, err := client.Upload(context.Background(), imageData, whatsmeow.MediaImage)
 	if err != nil {
 		return fmt.Errorf("failed to upload image: %w", err)
@@ -92,6 +113,7 @@ func ReplyImage(client *whatsmeow.Client, evt *events.Message, imageData []byte,
 
 // ReplyVideo sends a video reply.
 func ReplyVideo(client *whatsmeow.Client, evt *events.Message, videoData []byte, mimetype string, caption string) error {
+	SimulateTyping(client, evt.Info.Chat)
 	uploaded, err := client.Upload(context.Background(), videoData, whatsmeow.MediaVideo)
 	if err != nil {
 		return fmt.Errorf("failed to upload video: %w", err)
@@ -116,6 +138,7 @@ func ReplyVideo(client *whatsmeow.Client, evt *events.Message, videoData []byte,
 
 // ReplyAudio sends an audio reply.
 func ReplyAudio(client *whatsmeow.Client, evt *events.Message, audioData []byte, mimetype string) error {
+	SimulateTyping(client, evt.Info.Chat)
 	uploaded, err := client.Upload(context.Background(), audioData, whatsmeow.MediaAudio)
 	if err != nil {
 		return fmt.Errorf("failed to upload audio: %w", err)
@@ -139,6 +162,7 @@ func ReplyAudio(client *whatsmeow.Client, evt *events.Message, audioData []byte,
 
 // ReplySticker sends a WebP sticker reply.
 func ReplySticker(client *whatsmeow.Client, evt *events.Message, stickerData []byte, animated bool) error {
+	SimulateTyping(client, evt.Info.Chat)
 	uploaded, err := client.Upload(context.Background(), stickerData, whatsmeow.MediaImage)
 	if err != nil {
 		return fmt.Errorf("failed to upload sticker: %w", err)
