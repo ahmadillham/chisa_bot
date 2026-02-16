@@ -43,8 +43,7 @@ func (h *SystemHandler) HandleStats(client *whatsmeow.Client, evt *events.Messag
 	runtime.ReadMemStats(&memStats)
 	botMemMB := float64(memStats.Alloc) / 1024 / 1024
 
-	stats := fmt.Sprintf(`
-%s
+	stats := fmt.Sprintf(`%s
 %s (%d Cores)
 %s / %s
 %s
