@@ -89,6 +89,7 @@ func (s *YtDlpService) DownloadInstagram(sourceURL string) (*MediaResult, error)
 		"--max-filesize", "100M",
 		"--no-playlist",
 		"--no-warnings",
+		"--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
 		"-o", outputTemplate,
 		sourceURL,
 	}
@@ -179,14 +180,26 @@ func (s *YtDlpService) scrapeIGImage(url string) (*MediaResult, error) {
 	}
 	html := string(body)
 
-	// Regex for og:image
-	re := regexp.MustCompile(`<meta property="og:image" content="([^"]+)"`)
-	matches := re.FindStringSubmatch(html)
-	if len(matches) < 2 {
-		return nil, fmt.Errorf("og:image not found")
+	// Try og:image first (usually standard)
+	var imageURL string
+	reOG := regexp.MustCompile(`<meta property="og:image" content="([^"]+)"`)
+	matchesOG := reOG.FindStringSubmatch(html)
+	if len(matchesOG) > 1 {
+		imageURL = matchesOG[1]
+	} else {
+		// Fallback to twitter:image (sometimes better quality/aspect)
+		reTw := regexp.MustCompile(`<meta name="twitter:image" content="([^"]+)"`)
+		matchesTw := reTw.FindStringSubmatch(html)
+		if len(matchesTw) > 1 {
+			imageURL = matchesTw[1]
+		}
 	}
 
-	imageURL := strings.ReplaceAll(matches[1], "&amp;", "&")
+	if imageURL == "" {
+		return nil, fmt.Errorf("no image found (checked og:image and twitter:image)")
+	}
+
+	imageURL = strings.ReplaceAll(imageURL, "&amp;", "&")
 
 	// Download the image
 	imgResp, err := http.Get(imageURL)
