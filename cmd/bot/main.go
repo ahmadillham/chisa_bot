@@ -59,10 +59,9 @@ func main() {
 	registry := handlers.NewRegistry()
 	registry.Register("sticker", wrap(mediaHandler.HandleSticker))
 	registry.Register("s", wrap(mediaHandler.HandleSticker))
-	registry.Register("toimg", wrap(mediaHandler.HandleStickerToImage))
-	registry.Register("show", wrap(mediaHandler.HandleRetrieveViewOnce))
-	registry.Register("showimg", wrap(mediaHandler.HandleRetrieveViewOnce))
-	registry.Register("rv", wrap(mediaHandler.HandleRetrieveViewOnce))
+	// Unified image command
+	registry.Register("toimg", wrap(mediaHandler.HandleImage))
+	// Removed aliases: .show, .showimg, .rv, .img, .image
 	
 	// Downloader handlers already take args, so they match CommandHandler sort of? 
 	// Wait, DownloaderHandler.HandleVideo takes (client, evt, args). 

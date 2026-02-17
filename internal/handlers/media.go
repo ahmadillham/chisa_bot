@@ -163,3 +163,26 @@ func (h *MediaHandler) HandleRetrieveViewOnce(client *whatsmeow.Client, evt *eve
 		utils.ReplyText(client, evt, "❌ Gagal mengirim ulang media.")
 	}
 }
+
+// HandleImage is a smart command that handles both sticker-to-image and view-once-retrieval.
+func (h *MediaHandler) HandleImage(client *whatsmeow.Client, evt *events.Message) {
+	quoted := utils.GetQuotedMessage(evt)
+	if quoted == nil {
+		utils.ReplyText(client, evt, "⚠️ Reply sticker atau pesan View Once dengan caption .toimg")
+		return
+	}
+
+	// Case 1: Sticker -> Image
+	if quoted.GetStickerMessage() != nil {
+		h.HandleStickerToImage(client, evt)
+		return
+	}
+
+	// Case 2: View Once -> Image/Video
+	if quoted.GetViewOnceMessage() != nil {
+		h.HandleRetrieveViewOnce(client, evt)
+		return
+	}
+
+	utils.ReplyText(client, evt, "⚠️ Pesan yang di-reply bukan sticker atau View Once.")
+}
