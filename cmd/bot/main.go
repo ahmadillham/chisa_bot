@@ -1,4 +1,4 @@
-package  main
+package main
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -47,6 +48,46 @@ func main() {
 	sysHandler := handlers.NewSystemHandler()
 	limiter := ratelimit.New(3*time.Second, 20, time.Minute)
 
+	// Helper to wrap handlers that don't take args
+	wrap := func(h func(*whatsmeow.Client, *events.Message)) handlers.CommandHandler {
+		return func(c *whatsmeow.Client, e *events.Message, _ []string) {
+			h(c, e)
+		}
+	}
+
+	// Initialize Registry
+	registry := handlers.NewRegistry()
+	registry.Register("sticker", wrap(mediaHandler.HandleSticker))
+	registry.Register("s", wrap(mediaHandler.HandleSticker))
+	registry.Register("toimg", wrap(mediaHandler.HandleStickerToImage))
+	registry.Register("show", wrap(mediaHandler.HandleRetrieveViewOnce))
+	registry.Register("showimg", wrap(mediaHandler.HandleRetrieveViewOnce))
+	registry.Register("rv", wrap(mediaHandler.HandleRetrieveViewOnce))
+	
+	// Downloader handlers already take args, so they match CommandHandler sort of? 
+	// Wait, DownloaderHandler.HandleVideo takes (client, evt, args). 
+	// Let's check signature in internal/handlers/downloader.go...
+	// It takes (client, evt, args). So it matches directly.
+	
+	registry.Register("dl", dlHandler.HandleVideo)
+	registry.Register("tiktok", dlHandler.HandleVideo)
+	registry.Register("tt", dlHandler.HandleVideo)
+	registry.Register("ig", dlHandler.HandleVideo)
+	registry.Register("instagram", dlHandler.HandleVideo)
+	registry.Register("ytmp4", dlHandler.HandleVideo)
+	registry.Register("mp3", dlHandler.HandleAudio)
+	registry.Register("ytmp3", dlHandler.HandleAudio)
+	
+	registry.Register("tagall", wrap(groupHandler.HandleTagAll))
+	registry.Register("kick", groupHandler.HandleKick) // HandleKick takes args
+	registry.Register("usir", groupHandler.HandleKick)
+	
+	registry.Register("menu", wrap(menuHandler.HandleMenu))
+	registry.Register("help", wrap(menuHandler.HandleMenu))
+	registry.Register("stats", wrap(sysHandler.HandleStats))
+	registry.Register("server", wrap(sysHandler.HandleStats))
+	registry.Register("stat", wrap(sysHandler.HandleStats))
+
 	// Register the main event handler.
 	client.AddEventHandler(func(rawEvt interface{}) {
 		switch evt := rawEvt.(type) {
@@ -59,7 +100,7 @@ func main() {
 						log.Printf("[PANIC RECOVERED] %v", r)
 					}
 				}()
-				handleMessage(client, evt, mediaHandler, dlHandler, groupHandler, menuHandler, sysHandler, limiter)
+				handleMessage(client, evt, registry, groupHandler, limiter)
 			}()
 
 		case *events.GroupInfo:
@@ -131,11 +172,8 @@ func main() {
 func handleMessage(
 	client *whatsmeow.Client,
 	evt *events.Message,
-	media *handlers.MediaHandler,
-	dl *handlers.DownloaderHandler,
-	group *handlers.GroupHandler,
-	menu *handlers.MenuHandler,
-	sys *handlers.SystemHandler,
+	registry *handlers.Registry,
+	groupHandler *handlers.GroupHandler,
 	limiter *ratelimit.Limiter,
 ) {
 	// Ignore messages from self.
@@ -149,12 +187,6 @@ func handleMessage(
 		return
 	}
 
-	// Parse the command.
-	parsed := router.Parse(text)
-	if parsed == nil {
-		return
-	}
-
 	// Rate limit check.
 	switch limiter.Check(evt.Info.Sender.String(), evt.Info.Chat.String()) {
 	case ratelimit.UserCooldown:
@@ -163,29 +195,21 @@ func handleMessage(
 		return
 	}
 
-	log.Printf("[CMD] %s | from: %s | chat: %s", parsed.Command, evt.Info.Sender.User, evt.Info.Chat.String())
+	// 1. Check for commands first.
+	parsed := router.Parse(text)
+	if parsed != nil {
+		log.Printf("[CMD] %s | from: %s | chat: %s", parsed.Command, evt.Info.Sender.User, evt.Info.Chat.String())
+		registry.Execute(client, evt, parsed.Command, parsed.Args)
+		return
+	}
 
-	// Route to appropriate handler.
-	switch parsed.Command {
-	case "sticker", "s":
-		media.HandleSticker(client, evt)
-	case "toimg":
-		media.HandleStickerToImage(client, evt)
-	case "show", "showimg", "rv":
-		media.HandleRetrieveViewOnce(client, evt)
-	case "dl", "tiktok", "tt", "ig", "instagram", "ytmp4":
-		dl.HandleVideo(client, evt, parsed.Args)
-	case "mp3", "ytmp3":
-		dl.HandleAudio(client, evt, parsed.Args)
-	case "tagall":
-		group.HandleTagAll(client, evt)
-	case "kick", "usir":
-		group.HandleKick(client, evt, parsed.Args)
-	case "menu", "help":
-		menu.HandleMenu(client, evt)
-	case "stats", "server", "stat":
-		sys.HandleStats(client, evt)
-	default:
-		// Unknown command — silently ignore.
+	// 2. If not a command, check for TikTok links in group chats.
+	if evt.Info.IsGroup && (strings.Contains(text, "tiktok.com/") || strings.Contains(text, "vm.tiktok.com/")) {
+		// Log found link
+		log.Printf("[AUTO-TAG] TikTok link detected in %s", evt.Info.Chat.String())
+		
+		// Trigger TagAll with custom message
+		tagTitle := fmt.Sprintf("🎬 *TikTok Link Detected!* 🎬\n\n%s", text)
+		groupHandler.TagAll(client, evt.Info.Chat, evt.Message, evt.Info.ID, evt.Info.Sender, tagTitle)
 	}
 }
