@@ -46,7 +46,7 @@ func main() {
 	groupHandler := handlers.NewGroupHandler()
 	menuHandler := handlers.NewMenuHandler()
 	sysHandler := handlers.NewSystemHandler()
-	limiter := ratelimit.New(3*time.Second, 20, time.Minute)
+	limiter := ratelimit.New(3*time.Second, 10, time.Minute)
 
 	// Helper to wrap handlers that don't take args
 	wrap := func(h func(*whatsmeow.Client, *events.Message)) handlers.CommandHandler {
