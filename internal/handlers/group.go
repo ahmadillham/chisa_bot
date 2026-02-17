@@ -74,10 +74,14 @@ func (h *GroupHandler) HandleTagAll(client *whatsmeow.Client, evt *events.Messag
 		return
 	}
 
-	groupInfo, err := client.GetGroupInfo(context.Background(), evt.Info.Chat)
+	h.TagAll(client, evt.Info.Chat, evt.Message, evt.Info.ID, evt.Info.Sender, "📢 *Tag All Members*")
+}
+
+// TagAll mentions all group members with a custom message.
+func (h *GroupHandler) TagAll(client *whatsmeow.Client, chatJID types.JID, quotedMsg *waProto.Message, stanzaID string, senderJID types.JID, title string) {
+	groupInfo, err := client.GetGroupInfo(context.Background(), chatJID)
 	if err != nil {
 		log.Printf("[tagall] failed to get group info: %v", err)
-		utils.ReplyText(client, evt, "❌ Gagal mendapatkan info grup.")
 		return
 	}
 
@@ -86,23 +90,20 @@ func (h *GroupHandler) HandleTagAll(client *whatsmeow.Client, evt *events.Messag
 		mentionJIDs = append(mentionJIDs, p.JID.String())
 	}
 
-	text := "📢 *Tag All Members*"
-
 	msg := &waProto.Message{
 		ExtendedTextMessage: &waProto.ExtendedTextMessage{
-			Text: proto.String(text),
+			Text: proto.String(title),
 			ContextInfo: &waProto.ContextInfo{
-				StanzaID:      proto.String(evt.Info.ID),
-				Participant:   proto.String(evt.Info.Sender.String()),
-				QuotedMessage: evt.Message,
+				StanzaID:      proto.String(stanzaID),
+				Participant:   proto.String(senderJID.String()),
+				QuotedMessage: quotedMsg,
 				MentionedJID:  mentionJIDs,
 			},
 		},
 	}
 
-	if _, err := client.SendMessage(context.Background(), evt.Info.Chat, msg); err != nil {
+	if _, err := client.SendMessage(context.Background(), chatJID, msg); err != nil {
 		log.Printf("[tagall] failed to send: %v", err)
-		utils.ReplyText(client, evt, "❌ Gagal mengirim tag all.")
 	}
 }
 
