@@ -209,7 +209,7 @@ func handleMessage(
 		log.Printf("[AUTO-TAG] TikTok link detected in %s", evt.Info.Chat.String())
 		
 		// Trigger TagAll with custom message
-		tagTitle := fmt.Sprintf("🎬 *TikTok Link Detected!* 🎬\n\n%s", text)
+		tagTitle := fmt.Sprintf("%s", text)
 		groupHandler.TagAll(client, evt.Info.Chat, evt.Message, evt.Info.ID, evt.Info.Sender, tagTitle)
 	}
 }
