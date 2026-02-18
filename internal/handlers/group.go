@@ -244,3 +244,45 @@ func (h *GroupHandler) HandleWarn(client *whatsmeow.Client, evt *events.Message,
 		h.sendGroupMention(client, evt.Info.Chat, msg, []string{targetJID.String()})
 	}
 }
+
+// HandleResetWarn resets the warning count for a user (admin only).
+func (h *GroupHandler) HandleResetWarn(client *whatsmeow.Client, evt *events.Message, args []string) {
+	if !evt.Info.IsGroup {
+		utils.ReplyText(client, evt, config.MsgOnlyGroup)
+		return
+	}
+
+	if !h.IsAdmin(client, evt.Info.Chat, evt.Info.Sender) {
+		utils.ReplyText(client, evt, config.MsgOnlyAdmin)
+		return
+	}
+
+	var targetJID types.JID
+	found := false
+
+	// Target detection (Reply > Mention > Args)
+	if evt.Message.GetExtendedTextMessage() != nil {
+		ctxInfo := evt.Message.GetExtendedTextMessage().GetContextInfo()
+		
+		// 1. Reply
+		if ctxInfo != nil && ctxInfo.Participant != nil {
+			targetJID, _ = types.ParseJID(*ctxInfo.Participant)
+			found = true
+		} else {
+			// 2. Mention
+			mentionList := ctxInfo.GetMentionedJID()
+			if len(mentionList) > 0 {
+				targetJID, _ = types.ParseJID(mentionList[0])
+				found = true
+			}
+		}
+	}
+
+	if !found {
+		utils.ReplyText(client, evt, "⚠️ Reply pesan atau tag member yang ingin di-reset warning-nya.\nContoh: .resetwarn @member")
+		return
+	}
+
+	h.warnStore.ResetWarning(evt.Info.Chat.String(), targetJID.String())
+	utils.ReplyText(client, evt, fmt.Sprintf("✅ Warning untuk @%s telah di-reset menjadi 0.", targetJID.User))
+}

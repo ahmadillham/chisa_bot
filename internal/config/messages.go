@@ -23,6 +23,7 @@ Prefix: . ! /
 • .mp3 <link>
 • .tagall
 • .warn <tag/reply>
+• .resetwarn <tag/reply>
 • .kick <member>
 • .stats
 • .menu`

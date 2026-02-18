@@ -81,6 +81,7 @@ func main() {
 	
 	registry.Register("tagall", wrap(groupHandler.HandleTagAll))
 	registry.Register("warn", groupHandler.HandleWarn)
+	registry.Register("resetwarn", groupHandler.HandleResetWarn)
 	registry.Register("kick", groupHandler.HandleKick) // HandleKick takes args
 	registry.Register("usir", groupHandler.HandleKick)
 	
