@@ -19,6 +19,7 @@ import (
 
 	"chisa_bot/internal/handlers"
 	"chisa_bot/internal/router"
+	"chisa_bot/internal/services"
 	"chisa_bot/pkg/ratelimit"
 	"chisa_bot/pkg/utils"
 )
@@ -41,9 +42,10 @@ func main() {
 	client := whatsmeow.NewClient(deviceStore, clientLog)
 
 	// Initialize handlers.
+	warnStore := services.NewWarnStore("warnings.json")
 	mediaHandler := handlers.NewMediaHandler()
 	dlHandler := handlers.NewDownloaderHandler()
-	groupHandler := handlers.NewGroupHandler()
+	groupHandler := handlers.NewGroupHandler(warnStore)
 	menuHandler := handlers.NewMenuHandler()
 	sysHandler := handlers.NewSystemHandler()
 	limiter := ratelimit.New(3*time.Second, 10, time.Minute)
@@ -78,6 +80,7 @@ func main() {
 	registry.Register("ytmp3", dlHandler.HandleAudio)
 	
 	registry.Register("tagall", wrap(groupHandler.HandleTagAll))
+	registry.Register("warn", groupHandler.HandleWarn)
 	registry.Register("kick", groupHandler.HandleKick) // HandleKick takes args
 	registry.Register("usir", groupHandler.HandleKick)
 	

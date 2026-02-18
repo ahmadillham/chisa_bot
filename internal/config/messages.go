@@ -22,6 +22,7 @@ Prefix: . ! /
 • .dl <link>
 • .mp3 <link>
 • .tagall
+• .warn <tag/reply>
 • .kick <member>
 • .stats
 • .menu`
