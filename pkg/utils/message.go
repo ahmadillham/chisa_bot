@@ -185,12 +185,33 @@ func ReplySticker(client *whatsmeow.Client, evt *events.Message, stickerData []b
 	return err
 }
 
+// UnwrapViewOnce unwraps all View Once variants (V1, V2, V2Extension)
+// and returns the inner message. Returns the original message if not View Once.
+func UnwrapViewOnce(msg *waProto.Message) *waProto.Message {
+	if vo := msg.GetViewOnceMessage(); vo != nil {
+		return vo.GetMessage()
+	}
+	if vo := msg.GetViewOnceMessageV2(); vo != nil {
+		return vo.GetMessage()
+	}
+	if vo := msg.GetViewOnceMessageV2Extension(); vo != nil {
+		return vo.GetMessage()
+	}
+	return msg
+}
+
+// IsViewOnceMessage checks if the message is any variant of View Once.
+func IsViewOnceMessage(msg *waProto.Message) bool {
+	return msg.GetViewOnceMessage() != nil ||
+		msg.GetViewOnceMessageV2() != nil ||
+		msg.GetViewOnceMessageV2Extension() != nil
+}
+
 // DownloadMediaFromMessage downloads media bytes from a message.
 func DownloadMediaFromMessage(client *whatsmeow.Client, msg *waProto.Message) ([]byte, error) {
-	// Handle View Once messages
-	if vo := msg.GetViewOnceMessage(); vo != nil {
-		msg = vo.GetMessage()
-	}
+	// Handle all View Once variants
+	msg = UnwrapViewOnce(msg)
+
 	if img := msg.GetImageMessage(); img != nil {
 		return client.Download(context.Background(), img)
 	}
@@ -221,9 +242,9 @@ func GetQuotedMessage(evt *events.Message) *waProto.Message {
 
 // IsMediaMessage checks if the message contains any media.
 func IsMediaMessage(msg *waProto.Message) bool {
-	if vo := msg.GetViewOnceMessage(); vo != nil {
-		msg = vo.GetMessage()
-	}
+	// Unwrap all View Once variants
+	msg = UnwrapViewOnce(msg)
+
 	return msg.GetImageMessage() != nil ||
 		msg.GetVideoMessage() != nil ||
 		msg.GetStickerMessage() != nil ||

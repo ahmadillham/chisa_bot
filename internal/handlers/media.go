@@ -55,9 +55,7 @@ func (h *MediaHandler) HandleSticker(client *whatsmeow.Client, evt *events.Messa
 	isAnimated := false
 
 	// Unwrap view once just in case (utility handles it, but we need type).
-	if vo := mediaMsg.GetViewOnceMessage(); vo != nil {
-		mediaMsg = vo.GetMessage()
-	}
+	mediaMsg = utils.UnwrapViewOnce(mediaMsg)
 
 	// Determine media type and convert accordingly.
 	if mediaMsg.GetImageMessage() != nil {
@@ -143,10 +141,7 @@ func (h *MediaHandler) HandleRetrieveViewOnce(client *whatsmeow.Client, evt *eve
 	}
 
 	// Unwrap to check type (utils handles download, but we need type to send).
-	msg := quoted
-	if vo := msg.GetViewOnceMessage(); vo != nil {
-		msg = vo.GetMessage()
-	}
+	msg := utils.UnwrapViewOnce(quoted)
 
 	// Resend as normal message.
 	if img := msg.GetImageMessage(); img != nil {
@@ -178,8 +173,8 @@ func (h *MediaHandler) HandleImage(client *whatsmeow.Client, evt *events.Message
 		return
 	}
 
-	// Case 2: View Once -> Image/Video
-	if quoted.GetViewOnceMessage() != nil {
+	// Case 2: View Once -> Image/Video (supports V1, V2, V2Extension)
+	if utils.IsViewOnceMessage(quoted) {
 		h.HandleRetrieveViewOnce(client, evt)
 		return
 	}
