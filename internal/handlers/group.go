@@ -53,7 +53,203 @@ func (h *GroupHandler) HandleGroupParticipants(client *whatsmeow.Client, evt *ev
 	for _, join := range evt.Join {
 		log.Printf("[group] User joined: %s in %s", join.String(), evt.JID.String())
 		welcomeMsg := fmt.Sprintf(
-			"👋 Halo @%s!\nSelamat datang di grup! 🎉\n\nSemoga betah ya~ 😊",
+			`
+			Selamat datang di grup, silahkan mengisi form berikut :
+Nama lengkap:
+Nama panggilan:
+Nama panggilan waktu kecil:
+Nama panggilan waktu sekolah:
+Nama panggilan waktu marah:
+Nama panggilan toxic teman:
+Nama dalam game:
+Nickname alay 2014:
+Nama favorit kalau jadi artis:
+Nama panggung:
+Hobi:
+Hobi rahasia:
+Hobi yang bikin bangkrut:
+Hobi yang sudah ditinggalkan:
+Hobi yang pengen dicoba:
+Umur:
+Tanggal lahir:
+Jam lahir:
+Menit lahir:
+Detik lahir:
+Hari lahir:
+Shio:
+Zodiak:
+Zodiak Cina:
+Golongan darah:
+Jenis kepribadian MBTI:
+Gender:
+Status:
+Nama pacar:
+Nama gebetan:
+Jumlah mantan:
+Nama mantan:
+Durasi pacaran terlama:
+Durasi pacaran tercepat:
+Alasan putus paling absurd:
+Tipe pasangan idaman:
+KTP:
+SIM A:
+SIM C:
+SIM internasional:
+STNK:
+BPKB:
+KK:
+Paspor:
+NPWP:
+Nomor rekening + bank:
+ATM yang digunakan:
+Email aktif:
+Email jaman SMP:
+Email saat masih labil:
+Alamat rumah:
+RT:
+RW:
+Kelurahan:
+Kecamatan:
+Kabupaten/Kota:
+Provinsi:
+Kode pos:
+Nama gang:
+Patokan rumah:
+Benua:
+Planet:
+Galaxy:
+Universe:
+Multiverse:
+Server realitas:
+Koordinat rumah (degree):
+Nama bapak:
+Nama ibu:
+Pekerjaan bapak:
+Pekerjaan ibu:
+Nama ayah angkat (kalau ada):
+Nama ibu angkat (kalau ada):
+Kakak kandung:
+Kakak tiri:
+Jumlah kakak:
+Nama kakak:
+Adek kandung:
+Adek tiri:
+Jumlah adek:
+Nama adek:
+Kakek dari ayah:
+Kakek dari ibu:
+Nenek dari ayah:
+Nenek dari ibu:
+Bibi dari ayah:
+Bibi dari ibu:
+Paman dari ayah:
+Paman dari ibu:
+Jumlah sepupu:
+Tinggi badan:
+Berat badan:
+Ukuran sepatu:
+Ukuran baju:
+Ukuran celana:
+Ukuran daleman:
+Ukuran atasan:
+Lebar pinggang:
+Panjang tangan:
+Panjang kaki:
+Diameter kepala:
+Diameter perut:
+Diameter lengan:
+Diameter paha:
+Diameter lutut:
+Diameter betis:
+Panjang kepala:
+Lebar hidung:
+Jumlah rambut rontok per hari:
+Jumlah tanda lahir:
+Warna kulit:
+Tipe tubuh:
+Makanan favorit:
+Minuman favorit:
+Camilan favorit:
+Makanan yang dibenci:
+Minuman yang tidak disukai:
+Restoran favorit:
+Makanan terenak yang pernah dicoba:
+Makanan yang bikin trauma:
+Film favorit:
+Sinetron favorit:
+Anime favorit:
+Manga favorit:
+Manhwa favorit:
+Manhua favorit:
+Drama Korea favorit:
+Game favorit:
+Genre game favorit:
+Server game:
+Role dalam game:
+Channel YouTube favorit:
+Instagram:
+Twitter/X:
+Facebook:
+TikTok:
+Discord ID:
+ID ML/FF/PUBG/Genshin:
+Akun paling aktif:
+Playlist musik favorit:
+Penyanyi favorit:
+Band favorit:
+Genre musik favorit:
+Lagu yang sering diputar:
+Sifat:
+Sikap:
+Love language:
+Kebiasaan aneh:
+Kebiasaan saat marah:
+Kebiasaan saat senang:
+Kebiasaan saat panik:
+Takut sama:
+Cita-cita:
+Nama sekolah/kampus:
+Alamat sekolah:
+Kelas/Jurusan:
+Guru favorit:
+Guru paling galak:
+Nilai rapor tertinggi:
+Nilai rapor terendah:
+Merk HP:
+Merk HP sebelumnya:
+Merk motor:
+Merk mobil:
+Jumlah helm:
+Jenis powerbank:
+Earphone favorit:
+Aplikasi yang paling sering dipakai:
+Jumlah teman:
+Teman online:
+Teman offline:
+Teman main game:
+Teman toxic:
+Teman dekat:
+Jenis hewan peliharaan:
+Nama hewan:
+Kebiasaan hewan:
+Nama hewan sebelumnya:
+Waifu:
+Husbu:
+Loli favorit:
+Shota favorit:
+Diameter rumah:
+Tingkat rumah:
+Jenis rumah:
+Warna rumah:
+Jumlah kamar:
+Nomor keberuntungan:
+Arah tidur favorit:
+Waktu bangun rata-rata:
+Waktu tidur rata-rata:
+Jumlah alarm yang dipakai:
+Kebiasaan tidur:
+Yang dilakukan pertama kali setelah bangun:
+			`,
 			join.User,
 		)
 		h.sendGroupMention(client, evt.JID, welcomeMsg, []string{join.String()})
