@@ -247,8 +247,7 @@ Waktu bangun rata-rata:
 Waktu tidur rata-rata:
 Jumlah alarm yang dipakai:
 Kebiasaan tidur:
-Yang dilakukan pertama kali setelah bangun:
-			`,
+Yang dilakukan pertama kali setelah bangun:`,
 			join.User,
 		)
 		h.sendGroupMention(client, evt.JID, welcomeMsg, []string{join.String()})
