@@ -53,8 +53,7 @@ func (h *GroupHandler) HandleGroupParticipants(client *whatsmeow.Client, evt *ev
 	for _, join := range evt.Join {
 		log.Printf("[group] User joined: %s in %s", join.String(), evt.JID.String())
 		welcomeMsg := fmt.Sprintf(
-			`
-			Selamat datang di grup, silahkan mengisi form berikut :
+			`Selamat datang di grup, silahkan mengisi form berikut :
 Nama lengkap:
 Nama panggilan:
 Nama panggilan waktu kecil:
