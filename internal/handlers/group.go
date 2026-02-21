@@ -53,9 +53,7 @@ func (h *GroupHandler) HandleGroupParticipants(client *whatsmeow.Client, evt *ev
 	for _, join := range evt.Join {
 		log.Printf("[group] User joined: %s in %s", join.String(), evt.JID.String())
 		welcomeMsg := fmt.Sprintf(
-
-
-			"👋 Halo @%s!\nSelamat datang di grup! 🎉\n\nSemoga betah ya~ 😊",
+			"Selamat datang member baru, semoga cepat keluar",
 			join.User,
 		)
 		h.sendGroupMention(client, evt.JID, welcomeMsg, []string{join.String()})
