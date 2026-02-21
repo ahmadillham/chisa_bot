@@ -62,7 +62,7 @@ func (h *GroupHandler) HandleGroupParticipants(client *whatsmeow.Client, evt *ev
 	for _, leave := range evt.Leave {
 		log.Printf("[group] User left: %s from %s", leave.String(), evt.JID.String())
 		goodbyeMsg := fmt.Sprintf(
-			"👋 Sampai jumpa @%s!\nTerima kasih sudah meramaikan grup. 👋",
+			"Sampai jumpa, gak usah balik lagi ke grup ya",
 			leave.User,
 		)
 		h.sendGroupMention(client, evt.JID, goodbyeMsg, []string{leave.String()})
@@ -160,7 +160,6 @@ func (h *GroupHandler) HandleKick(client *whatsmeow.Client, evt *events.Message,
 		utils.ReplyText(client, evt, "❌ Gagal kick member. Pastikan bot adalah admin.")
 		return
 	}
-	utils.ReplyText(client, evt, "👋 Sayonara!")
 }
 
 func (h *GroupHandler) sendGroupMention(client *whatsmeow.Client, chatJID types.JID, text string, mentionJIDs []string) {
