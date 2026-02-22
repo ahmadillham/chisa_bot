@@ -202,9 +202,18 @@ func UnwrapViewOnce(msg *waProto.Message) *waProto.Message {
 
 // IsViewOnceMessage checks if the message is any variant of View Once.
 func IsViewOnceMessage(msg *waProto.Message) bool {
-	return msg.GetViewOnceMessage() != nil ||
+	if msg.GetViewOnceMessage() != nil ||
 		msg.GetViewOnceMessageV2() != nil ||
-		msg.GetViewOnceMessageV2Extension() != nil
+		msg.GetViewOnceMessageV2Extension() != nil {
+		return true
+	}
+	if img := msg.GetImageMessage(); img != nil && img.GetViewOnce() {
+		return true
+	}
+	if vid := msg.GetVideoMessage(); vid != nil && vid.GetViewOnce() {
+		return true
+	}
+	return false
 }
 
 // DownloadMediaFromMessage downloads media bytes from a message.
