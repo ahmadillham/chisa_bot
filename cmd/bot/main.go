@@ -43,9 +43,10 @@ func main() {
 
 	// Initialize handlers.
 	warnStore := services.NewWarnStore("warnings.json")
+	autoTagStore := services.NewAutoTagStore("autotag.json")
 	mediaHandler := handlers.NewMediaHandler()
 	dlHandler := handlers.NewDownloaderHandler()
-	groupHandler := handlers.NewGroupHandler(warnStore)
+	groupHandler := handlers.NewGroupHandler(warnStore, autoTagStore)
 	menuHandler := handlers.NewMenuHandler()
 	sysHandler := handlers.NewSystemHandler()
 	limiter := ratelimit.New(3*time.Second, 10, time.Minute)
@@ -59,7 +60,6 @@ func main() {
 
 	// Initialize Registry
 	registry := handlers.NewRegistry()
-	registry.Register("sticker", wrap(mediaHandler.HandleSticker))
 	registry.Register("s", wrap(mediaHandler.HandleSticker))
 	// Unified image command
 	registry.Register("toimg", wrap(mediaHandler.HandleImage))
@@ -71,24 +71,15 @@ func main() {
 	// It takes (client, evt, args). So it matches directly.
 	
 	registry.Register("dl", dlHandler.HandleVideo)
-	registry.Register("tiktok", dlHandler.HandleVideo)
-	registry.Register("tt", dlHandler.HandleVideo)
-	registry.Register("ig", dlHandler.HandleVideo)
-	registry.Register("instagram", dlHandler.HandleVideo)
-	registry.Register("ytmp4", dlHandler.HandleVideo)
 	registry.Register("mp3", dlHandler.HandleAudio)
-	registry.Register("ytmp3", dlHandler.HandleAudio)
 	
 	registry.Register("tagall", wrap(groupHandler.HandleTagAll))
 	registry.Register("warn", groupHandler.HandleWarn)
 	registry.Register("resetwarn", groupHandler.HandleResetWarn)
 	registry.Register("kick", groupHandler.HandleKick) // HandleKick takes args
-	registry.Register("usir", groupHandler.HandleKick)
+	registry.Register("autotag", groupHandler.HandleAutoTag)
 	
 	registry.Register("menu", wrap(menuHandler.HandleMenu))
-	registry.Register("help", wrap(menuHandler.HandleMenu))
-	registry.Register("stats", wrap(sysHandler.HandleStats))
-	registry.Register("server", wrap(sysHandler.HandleStats))
 	registry.Register("stat", wrap(sysHandler.HandleStats))
 
 	// Register the main event handler.
@@ -103,7 +94,7 @@ func main() {
 						log.Printf("[PANIC RECOVERED] %v", r)
 					}
 				}()
-				handleMessage(client, evt, registry, groupHandler, limiter)
+				handleMessage(client, evt, registry, groupHandler, limiter, autoTagStore)
 			}()
 
 		case *events.GroupInfo:
@@ -178,6 +169,7 @@ func handleMessage(
 	registry *handlers.Registry,
 	groupHandler *handlers.GroupHandler,
 	limiter *ratelimit.Limiter,
+	autoTagStore *services.AutoTagStore,
 ) {
 	// Ignore messages from self.
 	if evt.Info.IsFromMe {
@@ -208,11 +200,13 @@ func handleMessage(
 
 	// 2. If not a command, check for TikTok links in group chats.
 	if evt.Info.IsGroup && (strings.Contains(text, "tiktok.com/") || strings.Contains(text, "vm.tiktok.com/")) {
-		// Log found link
-		log.Printf("[AUTO-TAG] TikTok link detected in %s", evt.Info.Chat.String())
-		
-		// Trigger TagAll with custom message
-		tagTitle := fmt.Sprintf("%s", text)
-		groupHandler.TagAll(client, evt.Info.Chat, evt.Message, evt.Info.ID, evt.Info.Sender, tagTitle)
+		if !autoTagStore.IsDisabled(evt.Info.Chat.String()) {
+			// Log found link
+			log.Printf("[AUTO-TAG] TikTok link detected in %s", evt.Info.Chat.String())
+			
+			// Trigger TagAll with custom message
+			tagTitle := fmt.Sprintf("%s", text)
+			groupHandler.TagAll(client, evt.Info.Chat, evt.Message, evt.Info.ID, evt.Info.Sender, tagTitle)
+		}
 	}
 }

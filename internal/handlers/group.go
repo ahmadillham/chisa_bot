@@ -19,13 +19,15 @@ import (
 
 // GroupHandler handles group management features.
 type GroupHandler struct {
-	warnStore *services.WarnStore
+	warnStore    *services.WarnStore
+	autoTagStore *services.AutoTagStore
 }
 
 // NewGroupHandler creates a new GroupHandler.
-func NewGroupHandler(warnStore *services.WarnStore) *GroupHandler {
+func NewGroupHandler(warnStore *services.WarnStore, autoTagStore *services.AutoTagStore) *GroupHandler {
 	return &GroupHandler{
-		warnStore: warnStore,
+		warnStore:    warnStore,
+		autoTagStore: autoTagStore,
 	}
 }
 
@@ -278,4 +280,34 @@ func (h *GroupHandler) HandleResetWarn(client *whatsmeow.Client, evt *events.Mes
 
 	h.warnStore.ResetWarning(evt.Info.Chat.String(), targetJID.String())
 	utils.ReplyText(client, evt, fmt.Sprintf("✅ Warning untuk @%s telah di-reset menjadi 0.", targetJID.User))
+}
+
+// HandleAutoTag toggles the auto-tag feature for a group (admin only).
+func (h *GroupHandler) HandleAutoTag(client *whatsmeow.Client, evt *events.Message, args []string) {
+	if !evt.Info.IsGroup {
+		utils.ReplyText(client, evt, "⚠️ Perintah ini hanya bisa digunakan di grup.")
+		return
+	}
+
+	if !h.IsAdmin(client, evt.Info.Chat, evt.Info.Sender) {
+		utils.ReplyText(client, evt, "⚠️ Hanya admin yang bisa menggunakan perintah ini.")
+		return
+	}
+
+	if len(args) == 0 {
+		utils.ReplyText(client, evt, "⚠️ Gunakan format:\n.autotag on\n.autotag off")
+		return
+	}
+
+	groupSt := evt.Info.Chat.String()
+	switch args[0] {
+	case "on":
+		h.autoTagStore.SetDisabled(groupSt, false)
+		utils.ReplyText(client, evt, "✅ Auto-tag TikTok berhasil diaktifkan untuk grup ini.")
+	case "off":
+		h.autoTagStore.SetDisabled(groupSt, true)
+		utils.ReplyText(client, evt, "✅ Auto-tag TikTok berhasil dinonaktifkan untuk grup ini.")
+	default:
+		utils.ReplyText(client, evt, "⚠️ Parameter tidak valid. Gunakan 'on' atau 'off'.")
+	}
 }

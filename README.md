@@ -6,16 +6,14 @@ A modular, high-performance WhatsApp bot built with Go and [whatsmeow](https://g
 
 | Category             | Commands                                           |
 | -------------------- | -------------------------------------------------- |
-| **Sticker**          | `.sticker` / `.s` — Image/Video/GIF → WebP sticker |
+| **Sticker**          | `.s` — Image/Video/GIF → WebP sticker              |
 | **Sticker to Image** | `.toimg` — WebP sticker → PNG image                |
-| **TikTok**           | `.tiktok <url>` — Download without watermark       |
-| **Instagram**        | `.ig <url>` — Download Reels/Posts                 |
-| **YouTube**          | `.ytmp3 <url>` / `.ytmp4 <url>` — Audio or Video   |
-| **Tag All**          | `.tagall` — Mention all group members (admin only) |
+| **Video Downloader** | `.dl <url>` — Download TikTok/IG/YouTube Video     |
+| **Audio Downloader** | `.mp3 <url>` — Download YouTube Audio              |
+| **Group Admin**      | `.tagall`, `.warn`, `.resetwarn`, `.kick`, `.autotag`
 | **Welcome/Goodbye**  | Auto-message on group join/leave                   |
-| **Kerang Ajaib**     | `.kerangajaib <question>` — Magic Conch Shell      |
-| **Cek Khodam**       | `.cekkhodam <name>` — Random spirit generator      |
-| **Cek Jodoh**        | `.cekjodoh <name1> <name2>` — Compatibility check  |
+| **Auto-Tag**         | Auto-tag everyone on TikTok link detection         |
+| **System**           | `.menu`, `.stat`                                   |
 
 **Prefixes:** `.` `!` `/` (all work interchangeably)
 
@@ -81,8 +79,10 @@ chisa_bot/
 │   ├── handlers/
 │   │   ├── media.go             # .sticker, .toimg
 │   │   ├── downloader.go        # .tiktok, .ig, .ytmp3, .ytmp4
-│   │   ├── group.go             # Welcome/Goodbye, .tagall
-│   │   └── fun.go               # .kerangajaib, .cekkhodam, .cekjodoh
+│   │   ├── group.go             # Welcome/Goodbye, .tagall, .warn, .kick
+│   │   ├── menu.go              # .menu, .help
+│   │   ├── registry.go          # Command routing mapping
+│   │   └── system.go            # .stats, .server
 │   └── services/
 │       ├── ffmpeg.go            # FFmpeg conversion wrapper
 │       └── downloader.go        # Downloader API implementations
