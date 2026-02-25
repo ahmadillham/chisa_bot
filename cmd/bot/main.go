@@ -171,11 +171,6 @@ func handleMessage(
 	limiter *ratelimit.Limiter,
 	autoTagStore *services.AutoTagStore,
 ) {
-	// Ignore messages from self.
-	if evt.Info.IsFromMe {
-		return
-	}
-
 	// Extract text from various message types.
 	text := utils.GetTextFromMessage(evt)
 	if text == "" {
@@ -183,11 +178,14 @@ func handleMessage(
 	}
 
 	// Rate limit check.
-	switch limiter.Check(evt.Info.Sender.String(), evt.Info.Chat.String()) {
-	case ratelimit.UserCooldown:
-		return
-	case ratelimit.ChatRateLimit:
-		return
+	// Optionally bypass rate limit for self
+	if !evt.Info.IsFromMe {
+		switch limiter.Check(evt.Info.Sender.String(), evt.Info.Chat.String()) {
+		case ratelimit.UserCooldown:
+			return
+		case ratelimit.ChatRateLimit:
+			return
+		}
 	}
 
 	// 1. Check for commands first.
@@ -195,6 +193,11 @@ func handleMessage(
 	if parsed != nil {
 		log.Printf("[CMD] %s | from: %s | chat: %s", parsed.Command, evt.Info.Sender.User, evt.Info.Chat.String())
 		registry.Execute(client, evt, parsed.Command, parsed.Args)
+		return
+	}
+
+	// Ignore non-command messages from self to prevent infinite loops (e.g. from Auto-Tag)
+	if evt.Info.IsFromMe {
 		return
 	}
 
