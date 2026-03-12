@@ -44,9 +44,9 @@ func main() {
 	// Initialize handlers.
 	warnStore := services.NewWarnStore("warnings.json")
 	autoTagStore := services.NewAutoTagStore("autotag.json")
-	bannedStickerStore := services.NewBannedStickerStore("banned_stickers.json", []string{
-		"7ad7c4aa9fb40d766fb2fbe3b062d05c945c751d47f358b0584788d8f484883c",
-		"7f9e8eb316c61a10469c06d3eb461e7e529d889246f31e8b392173880b03af1b",
+	bannedStickerStore := services.NewBannedStickerStore("banned_stickers.json", []services.BannedStickerEntry{
+		{Hash: "7ad7c4aa9fb40d766fb2fbe3b062d05c945c751d47f358b0584788d8f484883c", Alias: "sticker1"},
+		{Hash: "7f9e8eb316c61a10469c06d3eb461e7e529d889246f31e8b392173880b03af1b", Alias: "sticker2"},
 	})
 	mediaHandler := handlers.NewMediaHandler()
 	dlHandler := handlers.NewDownloaderHandler()
@@ -79,6 +79,7 @@ func main() {
 
 	registry.Register("bansticker", antiStickerHandler.HandleBanSticker)
 	registry.Register("unbansticker", antiStickerHandler.HandleUnbanSticker)
+	registry.Register("liststicker", antiStickerHandler.HandleListBanned)
 
 	registry.Register("menu", wrap(menuHandler.HandleMenu))
 	registry.Register("stat", wrap(sysHandler.HandleStats))

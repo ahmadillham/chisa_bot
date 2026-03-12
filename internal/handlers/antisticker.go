@@ -94,6 +94,7 @@ func (h *AntiStickerHandler) HandleBanSticker(client *whatsmeow.Client, evt *eve
 	}
 
 	var hashHex string
+	var alias string
 
 	// Option 1: Reply to a sticker.
 	quoted := utils.GetQuotedMessage(evt)
@@ -104,20 +105,30 @@ func (h *AntiStickerHandler) HandleBanSticker(client *whatsmeow.Client, evt *eve
 		}
 	}
 
-	// Option 2: Hash provided as argument.
-	if hashHex == "" && len(args) > 0 {
-		hashHex = strings.ToLower(args[0])
+	// Optional alias from args (e.g. .bansticker myalias while replying).
+	if len(args) > 0 {
+		if hashHex != "" {
+			// Replying to sticker + provided alias name.
+			alias = args[0]
+		} else {
+			// No reply, treat arg as hash.
+			hashHex = strings.ToLower(args[0])
+			if len(args) > 1 {
+				alias = args[1]
+			}
+		}
 	}
 
 	if hashHex == "" {
-		utils.ReplyText(client, evt, "⚠️ Reply sticker yang ingin di-ban, atau kirim:\n.bansticker <sha256_hash>")
+		utils.ReplyText(client, evt, "⚠️ Reply sticker yang ingin di-ban, atau kirim:\n.bansticker <hash> [alias]")
 		return
 	}
 
-	if h.store.Add(hashHex) {
-		utils.ReplyText(client, evt, fmt.Sprintf("✅ Sticker berhasil di-ban.\nHash: `%s`\nTotal banned: %d", hashHex, h.store.Count()))
+	usedAlias, added := h.store.Add(hashHex, alias)
+	if added {
+		utils.ReplyText(client, evt, fmt.Sprintf("✅ Sticker berhasil di-ban.\nAlias: *%s*\nTotal banned: %d", usedAlias, h.store.Count()))
 	} else {
-		utils.ReplyText(client, evt, "⚠️ Sticker ini sudah ada di daftar banned.")
+		utils.ReplyText(client, evt, fmt.Sprintf("⚠️ Sticker ini sudah ada di daftar banned (alias: *%s*).", usedAlias))
 	}
 }
 
@@ -134,30 +145,46 @@ func (h *AntiStickerHandler) HandleUnbanSticker(client *whatsmeow.Client, evt *e
 		return
 	}
 
-	var hashHex string
+	var identifier string
 
 	// Option 1: Reply to a sticker.
 	quoted := utils.GetQuotedMessage(evt)
 	if quoted != nil && quoted.GetStickerMessage() != nil {
 		fileSHA256 := quoted.GetStickerMessage().GetFileSHA256()
 		if len(fileSHA256) > 0 {
-			hashHex = hex.EncodeToString(fileSHA256)
+			identifier = hex.EncodeToString(fileSHA256)
 		}
 	}
 
-	// Option 2: Hash provided as argument.
-	if hashHex == "" && len(args) > 0 {
-		hashHex = strings.ToLower(args[0])
+	// Option 2: Alias or hash provided as argument.
+	if identifier == "" && len(args) > 0 {
+		identifier = args[0]
 	}
 
-	if hashHex == "" {
-		utils.ReplyText(client, evt, "⚠️ Reply sticker yang ingin di-unban, atau kirim:\n.unbansticker <sha256_hash>")
+	if identifier == "" {
+		utils.ReplyText(client, evt, "⚠️ Reply sticker atau kirim:\n.unbansticker <alias>\n.unbansticker <hash>")
 		return
 	}
 
-	if h.store.Remove(hashHex) {
-		utils.ReplyText(client, evt, fmt.Sprintf("✅ Sticker berhasil di-unban.\nHash: `%s`\nTotal banned: %d", hashHex, h.store.Count()))
+	if h.store.Remove(identifier) {
+		utils.ReplyText(client, evt, fmt.Sprintf("✅ Sticker berhasil di-unban.\nTotal banned: %d", h.store.Count()))
 	} else {
-		utils.ReplyText(client, evt, "⚠️ Hash tidak ditemukan di daftar banned.")
+		utils.ReplyText(client, evt, "⚠️ Alias atau hash tidak ditemukan di daftar banned.")
 	}
+}
+
+// HandleListBanned shows all banned stickers with their aliases (admin only).
+func (h *AntiStickerHandler) HandleListBanned(client *whatsmeow.Client, evt *events.Message, args []string) {
+	if !evt.Info.IsGroup {
+		utils.ReplyText(client, evt, config.MsgOnlyGroup)
+		return
+	}
+
+	if !h.groupHandler.IsAdmin(client, evt.Info.Chat, evt.Info.Sender) {
+		utils.ReplyText(client, evt, config.MsgOnlyAdmin)
+		return
+	}
+
+	list := h.store.ListFormatted()
+	utils.ReplyText(client, evt, fmt.Sprintf("🚫 *Daftar Sticker Banned*\n\n%s", list))
 }

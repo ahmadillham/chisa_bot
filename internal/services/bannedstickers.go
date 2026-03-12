@@ -2,36 +2,39 @@ package services
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
-	"sort"
 	"strings"
 	"sync"
 )
 
-// BannedStickerStore manages a global set of banned sticker SHA256 hashes.
-// Hashes are stored as lowercase hex strings and persisted to a JSON file.
+// BannedStickerEntry holds a hash and its alias.
+type BannedStickerEntry struct {
+	Hash  string `json:"hash"`
+	Alias string `json:"alias"`
+}
+
+// BannedStickerStore manages a global set of banned sticker SHA256 hashes with aliases.
 type BannedStickerStore struct {
-	Hashes map[string]bool `json:"hashes"`
-	mu     sync.RWMutex
-	file   string
+	Entries []BannedStickerEntry `json:"entries"`
+	mu      sync.RWMutex
+	file    string
 }
 
 // NewBannedStickerStore creates a new store and loads data from file.
 // If the file doesn't exist yet, it seeds with the provided default hashes.
-func NewBannedStickerStore(file string, defaultHashes []string) *BannedStickerStore {
+func NewBannedStickerStore(file string, defaults []BannedStickerEntry) *BannedStickerStore {
 	store := &BannedStickerStore{
-		Hashes: make(map[string]bool),
-		file:   file,
+		Entries: []BannedStickerEntry{},
+		file:    file,
 	}
 	store.load()
 
-	// Seed default hashes if store is empty (first run).
-	if len(store.Hashes) == 0 && len(defaultHashes) > 0 {
+	// Seed defaults if store is empty (first run).
+	if len(store.Entries) == 0 && len(defaults) > 0 {
 		store.mu.Lock()
-		for _, h := range defaultHashes {
-			store.Hashes[strings.ToLower(h)] = true
-		}
+		store.Entries = append(store.Entries, defaults...)
 		store.mu.Unlock()
 		store.save()
 	}
@@ -41,57 +44,78 @@ func NewBannedStickerStore(file string, defaultHashes []string) *BannedStickerSt
 
 // IsBanned checks if a sticker hash is in the banned list.
 func (s *BannedStickerStore) IsBanned(hash string) bool {
+	h := strings.ToLower(hash)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.Hashes[strings.ToLower(hash)]
+	for _, e := range s.Entries {
+		if e.Hash == h {
+			return true
+		}
+	}
+	return false
 }
 
-// Add adds a sticker hash to the banned list. Returns true if it was newly added.
-func (s *BannedStickerStore) Add(hash string) bool {
+// Add adds a sticker hash with an alias. Auto-generates alias if empty.
+// Returns the alias used and true if newly added.
+func (s *BannedStickerStore) Add(hash string, alias string) (string, bool) {
 	h := strings.ToLower(hash)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.Hashes[h] {
-		return false // already banned
+	// Check if already exists.
+	for _, e := range s.Entries {
+		if e.Hash == h {
+			return e.Alias, false
+		}
 	}
-	s.Hashes[h] = true
+
+	// Auto-generate alias if not provided.
+	if alias == "" {
+		alias = fmt.Sprintf("sticker%d", len(s.Entries)+1)
+	}
+
+	s.Entries = append(s.Entries, BannedStickerEntry{Hash: h, Alias: alias})
 	s.save()
-	return true
+	return alias, true
 }
 
-// Remove removes a sticker hash from the banned list. Returns true if it was found and removed.
-func (s *BannedStickerStore) Remove(hash string) bool {
-	h := strings.ToLower(hash)
+// Remove removes a banned sticker by alias OR hash. Returns true if found and removed.
+func (s *BannedStickerStore) Remove(identifier string) bool {
+	id := strings.ToLower(identifier)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if !s.Hashes[h] {
-		return false
+	for i, e := range s.Entries {
+		if strings.ToLower(e.Alias) == id || e.Hash == id {
+			s.Entries = append(s.Entries[:i], s.Entries[i+1:]...)
+			s.save()
+			return true
+		}
 	}
-	delete(s.Hashes, h)
-	s.save()
-	return true
-}
-
-// List returns all banned hashes sorted alphabetically.
-func (s *BannedStickerStore) List() []string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	result := make([]string, 0, len(s.Hashes))
-	for h := range s.Hashes {
-		result = append(result, h)
-	}
-	sort.Strings(result)
-	return result
+	return false
 }
 
 // Count returns the number of banned hashes.
 func (s *BannedStickerStore) Count() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return len(s.Hashes)
+	return len(s.Entries)
+}
+
+// ListFormatted returns a formatted list of all banned stickers.
+func (s *BannedStickerStore) ListFormatted() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if len(s.Entries) == 0 {
+		return "Tidak ada sticker yang di-ban."
+	}
+
+	var lines []string
+	for i, e := range s.Entries {
+		lines = append(lines, fmt.Sprintf("%d. %s — `%s`", i+1, e.Alias, e.Hash[:16]+"..."))
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (s *BannedStickerStore) load() {
@@ -106,14 +130,14 @@ func (s *BannedStickerStore) load() {
 		return
 	}
 
-	if err := json.Unmarshal(data, &s.Hashes); err != nil {
+	if err := json.Unmarshal(data, &s.Entries); err != nil {
 		log.Printf("[bannedstickers] failed to parse %s: %v", s.file, err)
 	}
 }
 
 func (s *BannedStickerStore) save() {
 	// Must be called with lock held.
-	data, err := json.MarshalIndent(s.Hashes, "", "  ")
+	data, err := json.MarshalIndent(s.Entries, "", "  ")
 	if err != nil {
 		log.Printf("[bannedstickers] failed to marshal: %v", err)
 		return

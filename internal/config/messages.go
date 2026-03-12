@@ -26,7 +26,8 @@ Prefix: . ! /
 • .resetwarn <tag/reply>
 • .kick <member>
 • .bansticker (reply sticker)
-• .unbansticker (reply sticker)
+• .unbansticker <alias>
+• .liststicker
 • .stats
 • .menu`
 )
