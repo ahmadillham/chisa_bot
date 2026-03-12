@@ -76,10 +76,6 @@ func (h *AntiStickerHandler) CheckAndRevoke(client *whatsmeow.Client, evt *event
 		return false
 	}
 
-	// Send a short warning (no SimulateTyping to be fast).
-	warningMsg := fmt.Sprintf("🚫 Sticker dari @%s telah dihapus otomatis (sticker terlarang).", evt.Info.Sender.User)
-	utils.ReplyTextWithMentions(client, evt, warningMsg, []string{evt.Info.Sender.String()})
-
 	return true
 }
 
