@@ -44,11 +44,16 @@ func main() {
 	// Initialize handlers.
 	warnStore := services.NewWarnStore("warnings.json")
 	autoTagStore := services.NewAutoTagStore("autotag.json")
+	bannedStickerStore := services.NewBannedStickerStore("banned_stickers.json", []string{
+		"7ad7c4aa9fb40d766fb2fbe3b062d05c945c751d47f358b0584788d8f484883c",
+		"7f9e8eb316c61a10469c06d3eb461e7e529d889246f31e8b392173880b03af1b",
+	})
 	mediaHandler := handlers.NewMediaHandler()
 	dlHandler := handlers.NewDownloaderHandler()
 	groupHandler := handlers.NewGroupHandler(warnStore, autoTagStore)
 	menuHandler := handlers.NewMenuHandler()
 	sysHandler := handlers.NewSystemHandler()
+	antiStickerHandler := handlers.NewAntiStickerHandler(bannedStickerStore, groupHandler)
 	limiter := ratelimit.New(3*time.Second, 10, time.Minute)
 
 	// Helper to wrap handlers that don't take args
@@ -61,24 +66,20 @@ func main() {
 	// Initialize Registry
 	registry := handlers.NewRegistry()
 	registry.Register("s", wrap(mediaHandler.HandleSticker))
-	// Unified image command
 	registry.Register("toimg", wrap(mediaHandler.HandleImage))
-	// Removed aliases: .show, .showimg, .rv, .img, .image
-	
-	// Downloader handlers already take args, so they match CommandHandler sort of? 
-	// Wait, DownloaderHandler.HandleVideo takes (client, evt, args). 
-	// Let's check signature in internal/handlers/downloader.go...
-	// It takes (client, evt, args). So it matches directly.
-	
+
 	registry.Register("dl", dlHandler.HandleVideo)
 	registry.Register("mp3", dlHandler.HandleAudio)
-	
+
 	registry.Register("tagall", wrap(groupHandler.HandleTagAll))
 	registry.Register("warn", groupHandler.HandleWarn)
 	registry.Register("resetwarn", groupHandler.HandleResetWarn)
-	registry.Register("kick", groupHandler.HandleKick) // HandleKick takes args
+	registry.Register("kick", groupHandler.HandleKick)
 	registry.Register("autotag", groupHandler.HandleAutoTag)
-	
+
+	registry.Register("bansticker", antiStickerHandler.HandleBanSticker)
+	registry.Register("unbansticker", antiStickerHandler.HandleUnbanSticker)
+
 	registry.Register("menu", wrap(menuHandler.HandleMenu))
 	registry.Register("stat", wrap(sysHandler.HandleStats))
 
@@ -94,7 +95,7 @@ func main() {
 						log.Printf("[PANIC RECOVERED] %v", r)
 					}
 				}()
-				handleMessage(client, evt, registry, groupHandler, limiter, autoTagStore)
+				handleMessage(client, evt, registry, groupHandler, antiStickerHandler, limiter, autoTagStore)
 			}()
 
 		case *events.GroupInfo:
@@ -168,9 +169,15 @@ func handleMessage(
 	evt *events.Message,
 	registry *handlers.Registry,
 	groupHandler *handlers.GroupHandler,
+	antiStickerHandler *handlers.AntiStickerHandler,
 	limiter *ratelimit.Limiter,
 	autoTagStore *services.AutoTagStore,
 ) {
+	// Anti-sticker check: revoke banned stickers BEFORE anything else.
+	if antiStickerHandler.CheckAndRevoke(client, evt) {
+		return // Message was revoked, no further processing needed.
+	}
+
 	// Extract text from various message types.
 	text := utils.GetTextFromMessage(evt)
 	if text == "" {
