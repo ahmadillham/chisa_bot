@@ -48,13 +48,19 @@ func (h *AntiStickerHandler) CheckAndRevoke(client *whatsmeow.Client, evt *event
 
 	// Get the file SHA256 hash from the sticker message.
 	fileSHA256 := stickerMsg.GetFileSHA256()
+	fileEncSHA256 := stickerMsg.GetFileEncSHA256()
+
+	// Debug: log every sticker hash for troubleshooting.
+	hashHex := hex.EncodeToString(fileSHA256)
+	encHashHex := hex.EncodeToString(fileEncSHA256)
+	log.Printf("[anti-sticker] Sticker received — FileSHA256: %s | FileEncSHA256: %s | from: %s | chat: %s",
+		hashHex, encHashHex, evt.Info.Sender.User, evt.Info.Chat.String())
+
 	if len(fileSHA256) == 0 {
 		return false
 	}
 
-	hashHex := hex.EncodeToString(fileSHA256)
-
-	if !h.store.IsBanned(hashHex) {
+	if !h.store.IsBanned(hashHex) && !h.store.IsBanned(encHashHex) {
 		return false
 	}
 
