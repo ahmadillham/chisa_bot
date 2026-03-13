@@ -68,6 +68,9 @@ func (h *AntiStickerHandler) CheckAndRevoke(client *whatsmeow.Client, evt *event
 	log.Printf("[anti-sticker] Banned sticker detected (hash: %s) from %s in %s — revoking",
 		hashHex[:16]+"...", evt.Info.Sender.User, evt.Info.Chat.String())
 
+	// Delay before revoking to feel natural.
+	utils.SimulateTyping(client, evt.Info.Chat)
+
 	// BuildRevoke with sender JID (admin revocation of someone else's message).
 	revokeMsg := client.BuildRevoke(evt.Info.Chat, evt.Info.Sender, evt.Info.ID)
 
