@@ -183,39 +183,53 @@ func (h *MediaHandler) HandleImage(client *whatsmeow.Client, evt *events.Message
 	utils.ReplyText(client, evt, "⚠️ Pesan yang di-reply bukan sticker atau View Once.")
 }
 
-// HandleTextSticker adds meme-style text to a sticker (command: .ts <text>).
-// Usage: reply a sticker with .ts TEKS
+// HandleTextSticker adds meme-style text to a sticker or image (command: .ts <text>).
+// Usage: send/reply sticker or image with .ts TEKS
 func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if len(args) == 0 {
-		utils.ReplyText(client, evt, "⚠️ Penggunaan: reply sticker dengan .ts <teks>\nContoh: .ts MENGANCAM")
+		utils.ReplyText(client, evt, "⚠️ Penggunaan: kirim/reply gambar atau sticker dengan .ts <teks>\nContoh: .ts MENGANCAM")
 		return
 	}
 
 	text := strings.Join(args, " ")
 
-	// Get the sticker from the quoted or current message.
-	quoted := utils.GetQuotedMessage(evt)
+	// Find the media source: current message or quoted message.
 	var targetMsg = evt.Message
-
-	if quoted != nil {
+	if quoted := utils.GetQuotedMessage(evt); quoted != nil {
 		targetMsg = quoted
 	}
 
-	if targetMsg.GetStickerMessage() == nil {
-		utils.ReplyText(client, evt, "⚠️ Reply sticker yang ingin diberi teks.")
+	// Accept sticker or image.
+	isSticker := targetMsg.GetStickerMessage() != nil
+	isImage := targetMsg.GetImageMessage() != nil
+	if !isSticker && !isImage {
+		utils.ReplyText(client, evt, "⚠️ Kirim atau reply gambar/sticker dengan caption .ts <teks>")
 		return
 	}
 
-	// Download the sticker.
+	// Download the media.
 	data, err := utils.DownloadMediaFromMessage(client, targetMsg)
 	if err != nil {
-		log.Printf("[ts] failed to download sticker: %v", err)
-		utils.ReplyText(client, evt, "❌ Gagal download sticker.")
+		log.Printf("[ts] failed to download: %v", err)
+		utils.ReplyText(client, evt, "❌ Gagal download media.")
 		return
+	}
+
+	// If it's an image (not WebP), convert to WebP first.
+	var webpInput []byte
+	if isImage {
+		webpInput, err = h.ffmpeg.ImageToWebP(data)
+		if err != nil {
+			log.Printf("[ts] failed to convert image to webp: %v", err)
+			utils.ReplyText(client, evt, "❌ Gagal konversi gambar ke WebP.")
+			return
+		}
+	} else {
+		webpInput = data
 	}
 
 	// Overlay the text.
-	webpData, err := h.ffmpeg.AddTextToWebP(data, text)
+	webpData, err := h.ffmpeg.AddTextToWebP(webpInput, text)
 	if err != nil {
 		log.Printf("[ts] failed to add text: %v", err)
 		utils.ReplyText(client, evt, "❌ Gagal menambahkan teks ke sticker.")
