@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // FFmpegService provides methods to convert media using ffmpeg.
@@ -116,4 +117,58 @@ func (f *FFmpegService) WebPToImage(inputData []byte) ([]byte, error) {
 	}
 
 	return os.ReadFile(outputPath)
+}
+
+const memeFont = "/usr/share/fonts/julietaula-montserrat-fonts/Montserrat-Black.otf"
+
+// AddTextToWebP overlays meme-style bottom text onto a WebP sticker.
+// Text is rendered in white with a black border, centered at the bottom.
+func (f *FFmpegService) AddTextToWebP(inputData []byte, text string) ([]byte, error) {
+	tmpDir, err := os.MkdirTemp("", "chisabot-ts-*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	inputPath := filepath.Join(tmpDir, "input.webp")
+	outputPath := filepath.Join(tmpDir, "output.webp")
+
+	if err := os.WriteFile(inputPath, inputData, 0644); err != nil {
+		return nil, fmt.Errorf("failed to write input: %w", err)
+	}
+
+	// Escape special characters for FFmpeg drawtext.
+	safeText := escapeFfmpegText(text)
+
+	// drawtext: white text, black border, centered at bottom.
+	drawFilter := fmt.Sprintf(
+		"drawtext=fontfile=%s:text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=6:x=(w-text_w)/2:y=h-text_h-20",
+		memeFont, safeText,
+	)
+
+	cmd := exec.Command("ffmpeg",
+		"-i", inputPath,
+		"-vf", drawFilter,
+		"-c:v", "libwebp",
+		"-preset", "default",
+		"-quality", "80",
+		"-loop", "0",
+		"-an", "-vsync", "0",
+		"-y", outputPath,
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("ffmpeg drawtext failed: %w\nOutput: %s", err, string(output))
+	}
+
+	return os.ReadFile(outputPath)
+}
+
+// escapeFfmpegText escapes characters that are special in FFmpeg drawtext.
+func escapeFfmpegText(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, "'", `\'`)
+	s = strings.ReplaceAll(s, ":", `\:`)
+	return s
 }

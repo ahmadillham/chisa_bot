@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types/events"
@@ -180,4 +181,53 @@ func (h *MediaHandler) HandleImage(client *whatsmeow.Client, evt *events.Message
 	}
 
 	utils.ReplyText(client, evt, "⚠️ Pesan yang di-reply bukan sticker atau View Once.")
+}
+
+// HandleTextSticker adds meme-style text to a sticker (command: .ts <text>).
+// Usage: reply a sticker with .ts TEKS
+func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.Message, args []string) {
+	if len(args) == 0 {
+		utils.ReplyText(client, evt, "⚠️ Penggunaan: reply sticker dengan .ts <teks>\nContoh: .ts MENGANCAM")
+		return
+	}
+
+	text := strings.Join(args, " ")
+
+	// Get the sticker from the quoted or current message.
+	quoted := utils.GetQuotedMessage(evt)
+	var targetMsg = evt.Message
+
+	if quoted != nil {
+		targetMsg = quoted
+	}
+
+	if targetMsg.GetStickerMessage() == nil {
+		utils.ReplyText(client, evt, "⚠️ Reply sticker yang ingin diberi teks.")
+		return
+	}
+
+	// Download the sticker.
+	data, err := utils.DownloadMediaFromMessage(client, targetMsg)
+	if err != nil {
+		log.Printf("[ts] failed to download sticker: %v", err)
+		utils.ReplyText(client, evt, "❌ Gagal download sticker.")
+		return
+	}
+
+	// Overlay the text.
+	webpData, err := h.ffmpeg.AddTextToWebP(data, text)
+	if err != nil {
+		log.Printf("[ts] failed to add text: %v", err)
+		utils.ReplyText(client, evt, "❌ Gagal menambahkan teks ke sticker.")
+		return
+	}
+
+	// Add Exif metadata.
+	webpData, _ = utils.AddStickerExif(webpData, config.StickerPackName, config.StickerAuthorName)
+
+	// Send as sticker.
+	if err := utils.ReplySticker(client, evt, webpData, false); err != nil {
+		log.Printf("[ts] failed to send sticker: %v", err)
+		utils.ReplyText(client, evt, "❌ Gagal mengirim sticker.")
+	}
 }
