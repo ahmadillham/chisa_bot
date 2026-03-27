@@ -188,21 +188,21 @@ func handleMessage(
 		return
 	}
 
-	// Rate limit check (bypass for self).
-	if !evt.Info.IsFromMe {
-		switch limiter.Check(evt.Info.Sender.String(), evt.Info.Chat.String()) {
-		case ratelimit.UserCooldown:
-			utils.ReplyTextDirect(client, evt, config.MsgRateLimitUser)
-			return
-		case ratelimit.ChatRateLimit:
-			utils.ReplyTextDirect(client, evt, config.MsgRateLimitChat)
-			return
-		}
-	}
-
 	// 1. Check for commands first.
 	parsed := router.Parse(text)
 	if parsed != nil {
+		// Rate limit check — only for commands, not regular messages.
+		if !evt.Info.IsFromMe {
+			switch limiter.Check(evt.Info.Sender.String(), evt.Info.Chat.String()) {
+			case ratelimit.UserCooldown:
+				utils.ReplyTextDirect(client, evt, config.MsgRateLimitUser)
+				return
+			case ratelimit.ChatRateLimit:
+				utils.ReplyTextDirect(client, evt, config.MsgRateLimitChat)
+				return
+			}
+		}
+
 		log.Printf("[CMD] %s | from: %s | chat: %s", parsed.Command, evt.Info.Sender.User, evt.Info.Chat.String())
 		registry.Execute(client, evt, parsed.Command, parsed.Args)
 		return
