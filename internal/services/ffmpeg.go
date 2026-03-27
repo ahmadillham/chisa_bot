@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"chisa_bot/internal/config"
 )
 
 // FFmpegService provides methods to convert media using ffmpeg.
@@ -119,8 +121,6 @@ func (f *FFmpegService) WebPToImage(inputData []byte) ([]byte, error) {
 	return os.ReadFile(outputPath)
 }
 
-const memeFont = "/usr/share/fonts/julietaula-montserrat-fonts/Montserrat-Black.otf"
-
 // AddTextToWebP overlays meme-style bottom text onto a WebP sticker.
 // Text is rendered in white with a black border, centered at the bottom.
 func (f *FFmpegService) AddTextToWebP(inputData []byte, text string) ([]byte, error) {
@@ -143,7 +143,7 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string) ([]byte, er
 	// drawtext: white text, black border, centered at bottom.
 	drawFilter := fmt.Sprintf(
 		"drawtext=fontfile=%s:text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=6:x=(w-text_w)/2:y=h-text_h-20",
-		memeFont, safeText,
+		config.MemeFontPath, safeText,
 	)
 
 	cmd := exec.Command("ffmpeg",
@@ -167,8 +167,13 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string) ([]byte, er
 
 // escapeFfmpegText escapes characters that are special in FFmpeg drawtext.
 func escapeFfmpegText(s string) string {
+	// Order matters: escape backslash first.
 	s = strings.ReplaceAll(s, `\`, `\\`)
 	s = strings.ReplaceAll(s, "'", `\'`)
 	s = strings.ReplaceAll(s, ":", `\:`)
+	s = strings.ReplaceAll(s, "[", `\[`)
+	s = strings.ReplaceAll(s, "]", `\]`)
+	s = strings.ReplaceAll(s, ";", `\;`)
+	s = strings.ReplaceAll(s, "%", "%%")
 	return s
 }

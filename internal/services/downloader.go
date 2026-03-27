@@ -10,12 +10,14 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"chisa_bot/internal/config"
 )
 
 // MediaResult holds the result of a download operation.
 type MediaResult struct {
 	Title    string
-	Type     string // "video", "audio"
+	Type     string // "video", "audio", "image"
 	Mimetype string
 	Data     []byte
 	FilePath string
@@ -59,8 +61,11 @@ type ytDlpInfo struct {
 
 // DownloadAny automatically detects the platform and downloads the best video.
 func (s *YtDlpService) DownloadAny(sourceURL string) (*MediaResult, error) {
+	if !config.ValidateURL(sourceURL) {
+		return nil, fmt.Errorf("invalid or unsafe URL")
+	}
+
 	// Simple routing based on domain, though yt-dlp handles most automatically.
-	// We route physically only if we need specific flags (like tiktok watermark removal).
 	if strings.Contains(sourceURL, "tiktok.com") {
 		return s.DownloadTikTok(sourceURL)
 	}
@@ -73,20 +78,24 @@ func (s *YtDlpService) DownloadAny(sourceURL string) (*MediaResult, error) {
 
 // DownloadInstagram downloads IG content (Video or Image).
 func (s *YtDlpService) DownloadInstagram(sourceURL string) (*MediaResult, error) {
+	if !config.ValidateURL(sourceURL) {
+		return nil, fmt.Errorf("invalid or unsafe URL")
+	}
+
 	tmpDir, err := os.MkdirTemp("", "chisabot-dl-ig-*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp dir: %w", err)
 	}
-	// We don't defer remove here immediately because if we succeed we read file then remove.
-	// But it's better to remove in all cases. We will handle cleanup carefully.
 
 	// Output template without extension, yt-dlp adds it.
 	outputTemplate := filepath.Join(tmpDir, "media.%(ext)s")
 
+	maxSize := fmt.Sprintf("%dM", config.MaxFileSizeMB)
+
 	// Use "best" to allow images (jpg/webp) or video
 	args := []string{
 		"-f", "best",
-		"--max-filesize", "100M",
+		"--max-filesize", maxSize,
 		"--no-playlist",
 		"--no-warnings",
 		"--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -236,12 +245,13 @@ func (s *YtDlpService) downloadGeneric(sourceURL string) (*MediaResult, error) {
 	}
 
 	outputPath := filepath.Join(tmpDir, "video.mp4")
+	maxSize := fmt.Sprintf("%dM", config.MaxFileSizeMB)
 
 	// Best compatible video format (mp4+aac).
 	args := []string{
 		"-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
 		"--merge-output-format", "mp4",
-		"--max-filesize", "100M",
+		"--max-filesize", maxSize,
 		"--no-playlist",
 		"--no-warnings",
 		"-o", outputPath,
@@ -273,18 +283,23 @@ func (s *YtDlpService) downloadGeneric(sourceURL string) (*MediaResult, error) {
 
 // DownloadAudio downloads audio from a given URL using yt-dlp.
 func (s *YtDlpService) DownloadAudio(sourceURL string) (*MediaResult, error) {
+	if !config.ValidateURL(sourceURL) {
+		return nil, fmt.Errorf("invalid or unsafe URL")
+	}
+
 	tmpDir, err := os.MkdirTemp("", "chisabot-dl-*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp dir: %w", err)
 	}
 
 	outputPath := filepath.Join(tmpDir, "audio.mp3")
+	maxSize := fmt.Sprintf("%dM", config.MaxAudioSizeMB)
 
 	cmd := exec.Command(s.bin,
 		"-x",
 		"--audio-format", "mp3",
 		"--audio-quality", "0",
-		"--max-filesize", "50M",
+		"--max-filesize", maxSize,
 		"--no-playlist",
 		"--no-warnings",
 		"-o", outputPath,
@@ -321,11 +336,12 @@ func (s *YtDlpService) DownloadTikTok(sourceURL string) (*MediaResult, error) {
 	}
 
 	outputPath := filepath.Join(tmpDir, "tiktok.mp4")
+	maxSize := fmt.Sprintf("%dM", config.MaxFileSizeMB)
 
 	cmd := exec.Command(s.bin,
 		"-f", "best[ext=mp4]/best",
 		"--merge-output-format", "mp4",
-		"--max-filesize", "100M",
+		"--max-filesize", maxSize,
 		"--no-playlist",
 		"--no-warnings",
 		"-o", outputPath,

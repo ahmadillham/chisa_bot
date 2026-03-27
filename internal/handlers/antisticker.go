@@ -68,9 +68,7 @@ func (h *AntiStickerHandler) CheckAndRevoke(client *whatsmeow.Client, evt *event
 	log.Printf("[anti-sticker] Banned sticker detected (hash: %s) from %s in %s — revoking",
 		hashHex[:16]+"...", evt.Info.Sender.User, evt.Info.Chat.String())
 
-	// Delay before revoking to feel natural.
-	utils.SimulateTyping(client, evt.Info.Chat)
-
+	// Revoke immediately — speed matters for anti-sticker.
 	// BuildRevoke with sender JID (admin revocation of someone else's message).
 	revokeMsg := client.BuildRevoke(evt.Info.Chat, evt.Info.Sender, evt.Info.ID)
 
@@ -86,13 +84,13 @@ func (h *AntiStickerHandler) CheckAndRevoke(client *whatsmeow.Client, evt *event
 // Usage: reply to a sticker with .bansticker, or .bansticker <hash>
 func (h *AntiStickerHandler) HandleBanSticker(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if !evt.Info.IsGroup {
-		utils.ReplyText(client, evt, config.MsgOnlyGroup)
+		utils.ReplyTextDirect(client, evt, config.MsgOnlyGroup)
 		return
 	}
 
 	// Check admin.
 	if !h.groupHandler.IsAdmin(client, evt.Info.Chat, evt.Info.Sender) {
-		utils.ReplyText(client, evt, config.MsgOnlyAdmin)
+		utils.ReplyTextDirect(client, evt, config.MsgOnlyAdmin)
 		return
 	}
 
@@ -123,15 +121,15 @@ func (h *AntiStickerHandler) HandleBanSticker(client *whatsmeow.Client, evt *eve
 	}
 
 	if hashHex == "" {
-		utils.ReplyText(client, evt, "⚠️ Reply sticker yang ingin di-ban, atau kirim:\n.bansticker <hash> [alias]")
+		utils.ReplyTextDirect(client, evt, "⚠️ Reply sticker yang ingin di-ban, atau kirim:\n.bansticker <hash> [alias]")
 		return
 	}
 
 	usedAlias, added := h.store.Add(hashHex, alias)
 	if added {
-		utils.ReplyText(client, evt, fmt.Sprintf("✅ Sticker berhasil di-ban.\nAlias: *%s*\nTotal banned: %d", usedAlias, h.store.Count()))
+		utils.ReplyTextDirect(client, evt, fmt.Sprintf("✅ Sticker berhasil di-ban.\nAlias: *%s*\nTotal banned: %d", usedAlias, h.store.Count()))
 	} else {
-		utils.ReplyText(client, evt, fmt.Sprintf("⚠️ Sticker ini sudah ada di daftar banned (alias: *%s*).", usedAlias))
+		utils.ReplyTextDirect(client, evt, fmt.Sprintf("⚠️ Sticker ini sudah ada di daftar banned (alias: *%s*).", usedAlias))
 	}
 }
 
@@ -139,12 +137,12 @@ func (h *AntiStickerHandler) HandleBanSticker(client *whatsmeow.Client, evt *eve
 // Usage: reply to a sticker with .unbansticker, or .unbansticker <hash>
 func (h *AntiStickerHandler) HandleUnbanSticker(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if !evt.Info.IsGroup {
-		utils.ReplyText(client, evt, config.MsgOnlyGroup)
+		utils.ReplyTextDirect(client, evt, config.MsgOnlyGroup)
 		return
 	}
 
 	if !h.groupHandler.IsAdmin(client, evt.Info.Chat, evt.Info.Sender) {
-		utils.ReplyText(client, evt, config.MsgOnlyAdmin)
+		utils.ReplyTextDirect(client, evt, config.MsgOnlyAdmin)
 		return
 	}
 
@@ -165,29 +163,29 @@ func (h *AntiStickerHandler) HandleUnbanSticker(client *whatsmeow.Client, evt *e
 	}
 
 	if identifier == "" {
-		utils.ReplyText(client, evt, "⚠️ Reply sticker atau kirim:\n.unbansticker <alias>\n.unbansticker <hash>")
+		utils.ReplyTextDirect(client, evt, "⚠️ Reply sticker atau kirim:\n.unbansticker <alias>\n.unbansticker <hash>")
 		return
 	}
 
 	if h.store.Remove(identifier) {
-		utils.ReplyText(client, evt, fmt.Sprintf("✅ Sticker berhasil di-unban.\nTotal banned: %d", h.store.Count()))
+		utils.ReplyTextDirect(client, evt, fmt.Sprintf("✅ Sticker berhasil di-unban.\nTotal banned: %d", h.store.Count()))
 	} else {
-		utils.ReplyText(client, evt, "⚠️ Alias atau hash tidak ditemukan di daftar banned.")
+		utils.ReplyTextDirect(client, evt, "⚠️ Alias atau hash tidak ditemukan di daftar banned.")
 	}
 }
 
 // HandleListBanned shows all banned stickers with their aliases (admin only).
 func (h *AntiStickerHandler) HandleListBanned(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if !evt.Info.IsGroup {
-		utils.ReplyText(client, evt, config.MsgOnlyGroup)
+		utils.ReplyTextDirect(client, evt, config.MsgOnlyGroup)
 		return
 	}
 
 	if !h.groupHandler.IsAdmin(client, evt.Info.Chat, evt.Info.Sender) {
-		utils.ReplyText(client, evt, config.MsgOnlyAdmin)
+		utils.ReplyTextDirect(client, evt, config.MsgOnlyAdmin)
 		return
 	}
 
 	list := h.store.ListFormatted()
-	utils.ReplyText(client, evt, fmt.Sprintf("🚫 *Daftar Sticker Banned*\n\n%s", list))
+	utils.ReplyTextDirect(client, evt, fmt.Sprintf("🚫 *Daftar Sticker Banned*\n\n%s", list))
 }

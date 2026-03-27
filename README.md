@@ -7,10 +7,12 @@ A modular, high-performance WhatsApp bot built with Go and [whatsmeow](https://g
 | Category             | Commands                                           |
 | -------------------- | -------------------------------------------------- |
 | **Sticker**          | `.s` — Image/Video/GIF → WebP sticker              |
-| **Sticker to Image** | `.toimg` — WebP sticker → PNG image                |
+| **Text Sticker**     | `.ts <text>` — Add meme text to sticker/image      |
+| **Sticker to Image** | `.toimg` — WebP sticker → PNG / View Once retrieval |
 | **Video Downloader** | `.dl <url>` — Download TikTok/IG/YouTube Video     |
 | **Audio Downloader** | `.mp3 <url>` — Download YouTube Audio              |
-| **Group Admin**      | `.tagall`, `.warn`, `.resetwarn`, `.kick`, `.autotag`
+| **Group Admin**      | `.tagall`, `.warn`, `.resetwarn`, `.kick`, `.autotag` |
+| **Anti-Sticker**     | `.bansticker`, `.unbansticker`, `.liststicker`     |
 | **Welcome/Goodbye**  | Auto-message on group join/leave                   |
 | **Auto-Tag**         | Auto-tag everyone on TikTok link detection         |
 | **System**           | `.menu`, `.stat`                                   |
@@ -22,6 +24,7 @@ A modular, high-performance WhatsApp bot built with Go and [whatsmeow](https://g
 1. **Go 1.24+** — https://go.dev/dl/
 2. **FFmpeg** — Required for sticker conversion
 3. **GCC** — Required for SQLite (CGO)
+4. **yt-dlp** — Required for media downloading
 
 ### Install FFmpeg
 
@@ -47,6 +50,19 @@ sudo apt install -y build-essential
 # Arch
 sudo pacman -S base-devel
 ```
+
+### Install yt-dlp
+
+```bash
+# pip (recommended)
+pip install -U yt-dlp
+
+# Or download binary
+sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+sudo chmod a+rx /usr/local/bin/yt-dlp
+```
+
+Verify: `yt-dlp --version`
 
 ## Quick Start
 
@@ -74,21 +90,29 @@ After linking, the session is saved to `session.db` and subsequent runs reconnec
 chisa_bot/
 ├── cmd/bot/main.go              # Entry point, QR login, event loop
 ├── internal/
-│   ├── config/config.go         # Prefixes, sticker pack metadata
+│   ├── config/
+│   │   ├── config.go            # Prefixes, sticker metadata, all constants
+│   │   └── messages.go          # Bot message templates
 │   ├── router/router.go         # Multi-prefix command parser
 │   ├── handlers/
-│   │   ├── media.go             # .sticker, .toimg
-│   │   ├── downloader.go        # .tiktok, .ig, .ytmp3, .ytmp4
+│   │   ├── antisticker.go       # .bansticker, .unbansticker, .liststicker
+│   │   ├── downloader.go        # .dl, .mp3
 │   │   ├── group.go             # Welcome/Goodbye, .tagall, .warn, .kick
-│   │   ├── menu.go              # .menu, .help
+│   │   ├── media.go             # .s, .toimg, .ts
+│   │   ├── menu.go              # .menu
 │   │   ├── registry.go          # Command routing mapping
-│   │   └── system.go            # .stats, .server
+│   │   └── system.go            # .stat
 │   └── services/
+│       ├── autotagstore.go      # Auto-tag preference persistence
+│       ├── bannedstickers.go    # Banned sticker hash management
+│       ├── downloader.go        # yt-dlp wrapper with URL validation
 │       ├── ffmpeg.go            # FFmpeg conversion wrapper
-│       └── downloader.go        # Downloader API implementations
-├── pkg/utils/
-│   ├── message.go               # Reply helpers, media download
-│   └── sticker.go               # WebP Exif metadata writer
+│       └── warnstore.go         # Warning count persistence
+├── pkg/
+│   ├── ratelimit/ratelimit.go   # Per-user/per-chat rate limiter
+│   └── utils/
+│       ├── message.go           # Reply helpers, media download
+│       └── sticker.go           # WebP Exif metadata writer
 ├── go.mod
 └── go.sum
 ```
@@ -99,10 +123,12 @@ chisa_bot/
 - **Panic recovery**: All goroutines have `recover()` wrappers — the bot never crashes.
 - **Graceful shutdown**: `Ctrl+C` triggers clean disconnection.
 - **Memory limits**: Media downloads are capped at 100MB. Video stickers limited to 8s.
+- **Rate limiting**: Per-user cooldown (3s) and per-chat sliding window (10 commands/min).
+- **URL validation**: All user-supplied URLs are validated before being passed to external tools.
 
 ## Configuration
 
-Edit `internal/config/config.go` to customize:
+All configuration is centralized in `internal/config/config.go`:
 
 ```go
 var Prefixes = []string{".", "!", "/"}
@@ -111,6 +137,8 @@ const (
     StickerPackName   = "ChisaBot"
     StickerAuthorName = "chisa_bot"
 )
+
+// Rate limiting, media limits, warning thresholds, file paths, etc.
 ```
 
 ## Stopping the Bot
@@ -122,6 +150,7 @@ Press `Ctrl+C` for graceful shutdown, or send `SIGTERM`.
 | Issue                       | Fix                                             |
 | --------------------------- | ----------------------------------------------- |
 | `ffmpeg: command not found` | Install ffmpeg (see above)                      |
+| `yt-dlp: command not found` | Install yt-dlp (see above)                      |
 | `CGO_ENABLED` error         | Install GCC: `sudo apt install build-essential` |
 | QR code timeout             | Restart the bot and scan faster                 |
 | Session expired             | Delete `session.db` and re-scan QR              |

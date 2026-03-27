@@ -12,6 +12,9 @@ main
 session.db
 session.db-wal
 session.db-shm
+warnings.json
+autotag.json
+banned_stickers.json
 data/
 
 # OS specific

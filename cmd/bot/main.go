@@ -17,6 +17,7 @@ import (
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 
+	"chisa_bot/internal/config"
 	"chisa_bot/internal/handlers"
 	"chisa_bot/internal/router"
 	"chisa_bot/internal/services"
@@ -41,20 +42,21 @@ func main() {
 	clientLog := waLog.Stdout("Client", "WARN", true)
 	client := whatsmeow.NewClient(deviceStore, clientLog)
 
-	// Initialize handlers.
-	warnStore := services.NewWarnStore("warnings.json")
-	autoTagStore := services.NewAutoTagStore("autotag.json")
-	bannedStickerStore := services.NewBannedStickerStore("banned_stickers.json", []services.BannedStickerEntry{
-		{Hash: "7ad7c4aa9fb40d766fb2fbe3b062d05c945c751d47f358b0584788d8f484883c", Alias: "sticker1"},
-		{Hash: "7f9e8eb316c61a10469c06d3eb461e7e529d889246f31e8b392173880b03af1b", Alias: "sticker2"},
-	})
+	// Initialize handlers using config values for file paths.
+	warnStore := services.NewWarnStore(config.WarnStoreFile)
+	autoTagStore := services.NewAutoTagStore(config.AutoTagStoreFile)
+	bannedStickerStore := services.NewBannedStickerStore(config.BannedStickerStoreFile, nil)
 	mediaHandler := handlers.NewMediaHandler()
 	dlHandler := handlers.NewDownloaderHandler()
 	groupHandler := handlers.NewGroupHandler(warnStore, autoTagStore)
 	menuHandler := handlers.NewMenuHandler()
 	sysHandler := handlers.NewSystemHandler()
 	antiStickerHandler := handlers.NewAntiStickerHandler(bannedStickerStore, groupHandler)
-	limiter := ratelimit.New(3*time.Second, 10, time.Minute)
+	limiter := ratelimit.New(
+		time.Duration(config.RateLimitUserCooldownSec)*time.Second,
+		config.RateLimitChatMax,
+		time.Duration(config.RateLimitChatWindowSec)*time.Second,
+	)
 
 	// Helper to wrap handlers that don't take args
 	wrap := func(h func(*whatsmeow.Client, *events.Message)) handlers.CommandHandler {
@@ -79,7 +81,9 @@ func main() {
 	registry.Register("autotag", groupHandler.HandleAutoTag)
 
 	registry.Register("bansticker", antiStickerHandler.HandleBanSticker)
+	registry.Register("ban", antiStickerHandler.HandleBanSticker) // alias
 	registry.Register("unbansticker", antiStickerHandler.HandleUnbanSticker)
+	registry.Register("unban", antiStickerHandler.HandleUnbanSticker) // alias
 	registry.Register("liststicker", antiStickerHandler.HandleListBanned)
 
 	registry.Register("menu", wrap(menuHandler.HandleMenu))
@@ -151,8 +155,6 @@ func main() {
 		log.Println("🔄 Reconnected using saved session.")
 	}
 
-
-
 	// Graceful shutdown on OS signals.
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
@@ -186,13 +188,14 @@ func handleMessage(
 		return
 	}
 
-	// Rate limit check.
-	// Optionally bypass rate limit for self
+	// Rate limit check (bypass for self).
 	if !evt.Info.IsFromMe {
 		switch limiter.Check(evt.Info.Sender.String(), evt.Info.Chat.String()) {
 		case ratelimit.UserCooldown:
+			utils.ReplyTextDirect(client, evt, config.MsgRateLimitUser)
 			return
 		case ratelimit.ChatRateLimit:
+			utils.ReplyTextDirect(client, evt, config.MsgRateLimitChat)
 			return
 		}
 	}
@@ -213,12 +216,8 @@ func handleMessage(
 	// 2. If not a command, check for TikTok links in group chats.
 	if evt.Info.IsGroup && (strings.Contains(text, "tiktok.com/") || strings.Contains(text, "vm.tiktok.com/")) {
 		if !autoTagStore.IsDisabled(evt.Info.Chat.String()) {
-			// Log found link
 			log.Printf("[AUTO-TAG] TikTok link detected in %s", evt.Info.Chat.String())
-			
-			// Trigger TagAll with custom message
-			tagTitle := fmt.Sprintf("%s", text)
-			groupHandler.TagAll(client, evt.Info.Chat, evt.Message, evt.Info.ID, evt.Info.Sender, tagTitle)
+			groupHandler.TagAll(client, evt.Info.Chat, evt.Message, evt.Info.ID, evt.Info.Sender, text)
 		}
 	}
 }

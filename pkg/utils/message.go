@@ -57,9 +57,22 @@ func SimulateTyping(client *whatsmeow.Client, chatJID types.JID) {
 	client.SendChatPresence(context.Background(), chatJID, types.ChatPresencePaused, types.ChatPresenceMediaText)
 }
 
-// ReplyText sends a text reply to the message that triggered it.
+// ReplyText sends a text reply with typing simulation (natural feel).
 func ReplyText(client *whatsmeow.Client, evt *events.Message, text string) error {
 	SimulateTyping(client, evt.Info.Chat)
+	msg := &waProto.Message{
+		ExtendedTextMessage: &waProto.ExtendedTextMessage{
+			Text:        proto.String(text),
+			ContextInfo: newContextInfo(evt),
+		},
+	}
+	_, err := client.SendMessage(context.Background(), evt.Info.Chat, msg)
+	return err
+}
+
+// ReplyTextDirect sends a text reply immediately without typing simulation.
+// Use this for error messages, status updates, and quick feedback.
+func ReplyTextDirect(client *whatsmeow.Client, evt *events.Message, text string) error {
 	msg := &waProto.Message{
 		ExtendedTextMessage: &waProto.ExtendedTextMessage{
 			Text:        proto.String(text),
