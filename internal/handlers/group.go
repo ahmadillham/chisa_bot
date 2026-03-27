@@ -54,13 +54,13 @@ func (h *GroupHandler) HandleGroupParticipants(client *whatsmeow.Client, evt *ev
 
 	for _, join := range evt.Join {
 		log.Printf("[group] User joined: %s in %s", join.String(), evt.JID.String())
-		welcomeMsg := "Selamat datang member baru, semoga cepat keluar"
+		welcomeMsg := "Selamat datang member baru"
 		h.sendGroupMention(client, evt.JID, welcomeMsg, []string{join.String()})
 	}
 
 	for _, leave := range evt.Leave {
 		log.Printf("[group] User left: %s from %s", leave.String(), evt.JID.String())
-		goodbyeMsg := "Sampai jumpa, gak usah balik lagi ke grup ya"
+		goodbyeMsg := "Good Bye"
 		h.sendGroupMention(client, evt.JID, goodbyeMsg, []string{leave.String()})
 	}
 }
