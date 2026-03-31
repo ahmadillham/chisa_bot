@@ -187,7 +187,7 @@ func (f *FFmpegService) GenerateBratSticker(text string) ([]byte, error) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	outputPath := filepath.Join(tmpDir, "brat.webp")
+	outputPath := filepath.Join(tmpDir, "brat.png") // Output as PNG first
 
 	// The user requested white background with black text matching the photo.
 	// ImageMagick 'caption:' auto-wraps and scales text to fit the box.
@@ -218,5 +218,11 @@ func (f *FFmpegService) GenerateBratSticker(text string) ([]byte, error) {
 		return nil, fmt.Errorf("imagemagick brat generation failed: %w\nOutput: %s", err, string(output))
 	}
 
-	return os.ReadFile(outputPath)
+	pngData, err := os.ReadFile(outputPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read raw brat image: %w", err)
+	}
+
+	// Transcode with FFmpeg to guarantee mobile WhatsApp WebP compatibility
+	return f.ImageToWebP(pngData)
 }
