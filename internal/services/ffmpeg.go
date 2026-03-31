@@ -194,19 +194,15 @@ func (f *FFmpegService) GenerateBratSticker(text string) ([]byte, error) {
 	args := []string{
 		"-background", "white",
 		"-fill", "black",
-		"-font", "DejaVu-Sans", // Fallback font that works globally
-		"-size", "512x512",
-		"-gravity", "center",
+		"-font", "DejaVu-Sans", // Fallback if Arial is missing
+		"-size", "450x450",     // Tighter box so it doesn't touch edges
+		"-gravity", "West",     // Left aligned, vertically centered
 		fmt.Sprintf(`caption:%s`, text),
 		"-filter", "box",
-		"-blur", "0x1",
-		"-trim",       // Trim exact text boundary
+		"-blur", "0x2.5",       // More blur as requested ("agak blur")
 		"-bordercolor", "white", 
-		"-border", "50", // Add 50px border margin
-		"-resize", "512x512>", // Resize while preserving aspect ratio inside a 512x512 box
-		"-gravity", "center",
-		"-background", "white",
-		"-extent", "512x512", // Pad to a perfect 512x512 square
+		"-border", "31",        // 450 + 31*2 = 512
+		"-resize", "512x512!",  // Ensure exact 512x512 sticker size
 		outputPath,
 	}
 
