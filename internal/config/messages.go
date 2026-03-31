@@ -28,6 +28,9 @@ Prefix: . ! /
 • .bansticker (reply sticker)
 • .unbansticker <alias>
 • .liststicker
+• .bansu <tag/reply>
+• .unbansu <tag/reply>
+• .listsu
 • .stats
 • .menu`
 )
