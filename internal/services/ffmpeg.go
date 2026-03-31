@@ -177,3 +177,50 @@ func escapeFfmpegText(s string) string {
 	s = strings.ReplaceAll(s, "%", "%%")
 	return s
 }
+
+// GenerateBratSticker generates a brat-style sticker (white background, black Arial/sans text, auto-wrapped).
+func (f *FFmpegService) GenerateBratSticker(text string) ([]byte, error) {
+	// Create a temporary output file for the result
+	tmpDir, err := os.MkdirTemp("", "chisabot-brat-*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	outputPath := filepath.Join(tmpDir, "brat.webp")
+
+	// The user requested white background with black text matching the photo.
+	// ImageMagick 'caption:' auto-wraps and scales text to fit the box.
+	args := []string{
+		"-background", "white",
+		"-fill", "black",
+		"-font", "DejaVu-Sans", // Fallback font that works globally
+		"-size", "512x512",
+		"-gravity", "center",
+		fmt.Sprintf(`caption:%s`, text),
+		"-filter", "box",
+		"-blur", "0x1",
+		"-trim",       // Trim exact text boundary
+		"-bordercolor", "white", 
+		"-border", "50", // Add 50px border margin
+		"-resize", "512x512>", // Resize while preserving aspect ratio inside a 512x512 box
+		"-gravity", "center",
+		"-background", "white",
+		"-extent", "512x512", // Pad to a perfect 512x512 square
+		outputPath,
+	}
+
+	// Try magick first, fallback to convert
+	bin := "magick"
+	if _, err := exec.LookPath(bin); err != nil {
+		bin = "convert"
+	}
+
+	cmd := exec.Command(bin, args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("imagemagick brat generation failed: %w\nOutput: %s", err, string(output))
+	}
+
+	return os.ReadFile(outputPath)
+}

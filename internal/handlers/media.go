@@ -245,3 +245,31 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 		utils.ReplyTextDirect(client, evt, "❌ Gagal mengirim sticker.")
 	}
 }
+
+// HandleBrat creates a 'brat' style sticker from text.
+func (h *MediaHandler) HandleBrat(client *whatsmeow.Client, evt *events.Message, args []string) {
+	if len(args) == 0 {
+		utils.ReplyTextDirect(client, evt, "⚠️ Penggunaan: .brat <teks>\nContoh: .brat hello saya ilham")
+		return
+	}
+
+	text := strings.Join(args, " ")
+	utils.ReplyTextDirect(client, evt, "⏳ Sedang membuat sticker brat...")
+
+	// Generate brat sticker image data.
+	webpData, err := h.ffmpeg.GenerateBratSticker(text)
+	if err != nil {
+		log.Printf("[brat] failed to generate: %v", err)
+		utils.ReplyTextDirect(client, evt, "❌ Gagal membuat sticker brat. Pastikan ImageMagick (magick/convert) terinstal.")
+		return
+	}
+
+	// Inject Exif metadata constraints for WhatsApp to detect it as a valid sticker.
+	webpData, _ = utils.AddStickerExif(webpData, config.StickerPackName, config.StickerAuthorName)
+
+	// Send sticker.
+	if err := utils.ReplySticker(client, evt, webpData, false); err != nil {
+		log.Printf("[brat] failed to send sticker: %v", err)
+		utils.ReplyTextDirect(client, evt, "❌ Gagal mengirim sticker brat.")
+	}
+}

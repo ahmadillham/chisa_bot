@@ -19,6 +19,7 @@ Prefix: . ! /
 
 • .sticker (.s)
 • .toimg (Sticker->Img / ViewOnce)
+• .brat <teks>
 • .dl <link>
 • .mp3 <link>
 • .tagall
