@@ -99,6 +99,21 @@ func ReplyTextWithMentions(client *whatsmeow.Client, evt *events.Message, text s
 	return err
 }
 
+// ReplyTextDirectWithMentions sends a text reply with specific mentions instantly (no delay).
+func ReplyTextDirectWithMentions(client *whatsmeow.Client, evt *events.Message, text string, mentions []string) error {
+	ctxInfo := newContextInfo(evt)
+	ctxInfo.MentionedJID = mentions
+
+	msg := &waProto.Message{
+		ExtendedTextMessage: &waProto.ExtendedTextMessage{
+			Text:        proto.String(text),
+			ContextInfo: ctxInfo,
+		},
+	}
+	_, err := client.SendMessage(context.Background(), evt.Info.Chat, msg)
+	return err
+}
+
 // ReplyImage sends an image reply.
 func ReplyImage(client *whatsmeow.Client, evt *events.Message, imageData []byte, mimetype string, caption string) error {
 	SimulateTyping(client, evt.Info.Chat)
