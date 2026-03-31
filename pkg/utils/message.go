@@ -273,3 +273,27 @@ func IsMediaMessage(msg *waProto.Message) bool {
 		msg.GetDocumentMessage() != nil ||
 		msg.GetAudioMessage() != nil
 }
+
+// GetTargetJID tries to extract a target JID from message mentions or quotes.
+func GetTargetJID(evt *events.Message) (types.JID, bool) {
+	var targetJID types.JID
+	found := false
+
+	if evt.Message.GetExtendedTextMessage() != nil {
+		ctxInfo := evt.Message.GetExtendedTextMessage().GetContextInfo()
+		
+		// 1. Mention
+		mentionList := ctxInfo.GetMentionedJID()
+		if len(mentionList) > 0 {
+			targetJID, _ = types.ParseJID(mentionList[0])
+			found = true
+		} else if ctxInfo.Participant != nil {
+			// 2. Reply
+			targetJID, _ = types.ParseJID(*ctxInfo.Participant)
+			found = true
+		}
+	}
+	
+	return targetJID, found
+}
+

@@ -15,6 +15,7 @@ session.db-shm
 warnings.json
 autotag.json
 banned_stickers.json
+banned_sticker_users.json
 data/
 
 # OS specific

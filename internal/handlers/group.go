@@ -122,24 +122,7 @@ func (h *GroupHandler) HandleKick(client *whatsmeow.Client, evt *events.Message,
 		return
 	}
 
-	var targetJID types.JID
-	found := false
-
-	// Check mentions in the message itself
-	if evt.Message.GetExtendedTextMessage() != nil {
-		mentionList := evt.Message.GetExtendedTextMessage().GetContextInfo().GetMentionedJID()
-		if len(mentionList) > 0 {
-			targetJID, _ = types.ParseJID(mentionList[0])
-			found = true
-		} else {
-			// Check quoted message sender
-			ctxInfo := evt.Message.GetExtendedTextMessage().GetContextInfo()
-			if ctxInfo != nil && ctxInfo.Participant != nil {
-				targetJID, _ = types.ParseJID(*ctxInfo.Participant)
-				found = true
-			}
-		}
-	}
+	targetJID, found := utils.GetTargetJID(evt)
 
 	if !found {
 		utils.ReplyTextDirect(client, evt, "⚠️ Tag atau reply user yang ingin di-kick.")

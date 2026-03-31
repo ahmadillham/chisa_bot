@@ -18,12 +18,13 @@ import (
 // AntiStickerHandler handles auto-deletion of banned stickers.
 type AntiStickerHandler struct {
 	store        *services.BannedStickerStore
+	userStore    *services.BannedStickerUserStore
 	groupHandler *GroupHandler
 }
 
 // NewAntiStickerHandler creates a new AntiStickerHandler.
-func NewAntiStickerHandler(store *services.BannedStickerStore, groupHandler *GroupHandler) *AntiStickerHandler {
-	return &AntiStickerHandler{store: store, groupHandler: groupHandler}
+func NewAntiStickerHandler(store *services.BannedStickerStore, userStore *services.BannedStickerUserStore, groupHandler *GroupHandler) *AntiStickerHandler {
+	return &AntiStickerHandler{store: store, userStore: userStore, groupHandler: groupHandler}
 }
 
 // CheckAndRevoke checks if a message contains a banned sticker and revokes it.
@@ -40,10 +41,23 @@ func (h *AntiStickerHandler) CheckAndRevoke(client *whatsmeow.Client, evt *event
 		return false
 	}
 
-	// Check if the message contains a sticker.
 	stickerMsg := evt.Message.GetStickerMessage()
 	if stickerMsg == nil {
 		return false
+	}
+
+	// 1. Check if the user is banned from sending stickers.
+	if h.userStore.IsBanned(evt.Info.Sender.ToNonAD().String()) {
+		log.Printf("[anti-sticker] Banned user %s sent a sticker in %s — revoking",
+			evt.Info.Sender.User, evt.Info.Chat.String())
+
+		// Revoke immediately
+		revokeMsg := client.BuildRevoke(evt.Info.Chat, evt.Info.Sender, evt.Info.ID)
+		if _, err := client.SendMessage(context.Background(), evt.Info.Chat, revokeMsg); err != nil {
+			log.Printf("[anti-sticker] failed to revoke user's message: %v", err)
+			return false
+		}
+		return true
 	}
 
 	// Get the file SHA256 hash from the sticker message.
@@ -188,4 +202,74 @@ func (h *AntiStickerHandler) HandleListBanned(client *whatsmeow.Client, evt *eve
 
 	list := h.store.ListFormatted()
 	utils.ReplyTextDirect(client, evt, fmt.Sprintf("🚫 *Daftar Sticker Banned*\n\n%s", list))
+}
+
+// HandleBanStickerUser bans a user from sending any sticker in the group (admin only).
+// Usage: reply or tag user with .bansu @user
+func (h *AntiStickerHandler) HandleBanStickerUser(client *whatsmeow.Client, evt *events.Message, args []string) {
+	if !evt.Info.IsGroup {
+		utils.ReplyTextDirect(client, evt, config.MsgOnlyGroup)
+		return
+	}
+
+	if !h.groupHandler.IsAdmin(client, evt.Info.Chat, evt.Info.Sender) {
+		utils.ReplyTextDirect(client, evt, config.MsgOnlyAdmin)
+		return
+	}
+
+	targetJID, found := utils.GetTargetJID(evt)
+	if !found {
+		utils.ReplyTextDirect(client, evt, "⚠️ Reply pesan atau tag member yang ingin dilarang mengirim sticker.\nContoh: .bansu @member")
+		return
+	}
+
+	targetStr := targetJID.ToNonAD().String()
+	if h.userStore.Add(targetStr) {
+		utils.ReplyTextDirect(client, evt, fmt.Sprintf("✅ @%s sekarang dilarang mengirim sticker.", targetJID.User))
+	} else {
+		utils.ReplyTextDirect(client, evt, fmt.Sprintf("⚠️ @%s sudah ada di daftar larangan.", targetJID.User))
+	}
+}
+
+// HandleUnbanStickerUser unbans a user, allowing them to send stickers again (admin only).
+// Usage: reply or tag user with .unbansu @user
+func (h *AntiStickerHandler) HandleUnbanStickerUser(client *whatsmeow.Client, evt *events.Message, args []string) {
+	if !evt.Info.IsGroup {
+		utils.ReplyTextDirect(client, evt, config.MsgOnlyGroup)
+		return
+	}
+
+	if !h.groupHandler.IsAdmin(client, evt.Info.Chat, evt.Info.Sender) {
+		utils.ReplyTextDirect(client, evt, config.MsgOnlyAdmin)
+		return
+	}
+
+	targetJID, found := utils.GetTargetJID(evt)
+	if !found {
+		utils.ReplyTextDirect(client, evt, "⚠️ Reply pesan atau tag member yang ingin diizinkan mengirim sticker lagi.\nContoh: .unbansu @member")
+		return
+	}
+
+	targetStr := targetJID.ToNonAD().String()
+	if h.userStore.Remove(targetStr) {
+		utils.ReplyTextDirect(client, evt, fmt.Sprintf("✅ @%s sekarang diizinkan mengirim sticker kembali.", targetJID.User))
+	} else {
+		utils.ReplyTextDirect(client, evt, fmt.Sprintf("⚠️ @%s tidak ada di daftar larangan.", targetJID.User))
+	}
+}
+
+// HandleListBannedUsers shows all users forbidden from sending stickers (admin only).
+func (h *AntiStickerHandler) HandleListBannedUsers(client *whatsmeow.Client, evt *events.Message, args []string) {
+	if !evt.Info.IsGroup {
+		utils.ReplyTextDirect(client, evt, config.MsgOnlyGroup)
+		return
+	}
+
+	if !h.groupHandler.IsAdmin(client, evt.Info.Chat, evt.Info.Sender) {
+		utils.ReplyTextDirect(client, evt, config.MsgOnlyAdmin)
+		return
+	}
+
+	list := h.userStore.ListFormatted()
+	utils.ReplyTextDirect(client, evt, fmt.Sprintf("🚫 *Daftar User Dilarang Kirim Sticker*\n\n%s", list))
 }

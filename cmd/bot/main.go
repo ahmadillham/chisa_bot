@@ -46,12 +46,13 @@ func main() {
 	warnStore := services.NewWarnStore(config.WarnStoreFile)
 	autoTagStore := services.NewAutoTagStore(config.AutoTagStoreFile)
 	bannedStickerStore := services.NewBannedStickerStore(config.BannedStickerStoreFile, nil)
+	bannedStickerUserStore := services.NewBannedStickerUserStore(config.BannedStickerUserStoreFile)
 	mediaHandler := handlers.NewMediaHandler()
 	dlHandler := handlers.NewDownloaderHandler()
 	groupHandler := handlers.NewGroupHandler(warnStore, autoTagStore)
 	menuHandler := handlers.NewMenuHandler()
 	sysHandler := handlers.NewSystemHandler()
-	antiStickerHandler := handlers.NewAntiStickerHandler(bannedStickerStore, groupHandler)
+	antiStickerHandler := handlers.NewAntiStickerHandler(bannedStickerStore, bannedStickerUserStore, groupHandler)
 	limiter := ratelimit.New(
 		time.Duration(config.RateLimitUserCooldownSec)*time.Second,
 		config.RateLimitChatMax,
@@ -85,6 +86,10 @@ func main() {
 	registry.Register("unbansticker", antiStickerHandler.HandleUnbanSticker)
 	registry.Register("unban", antiStickerHandler.HandleUnbanSticker) // alias
 	registry.Register("liststicker", antiStickerHandler.HandleListBanned)
+
+	registry.Register("bansu", antiStickerHandler.HandleBanStickerUser)
+	registry.Register("unbansu", antiStickerHandler.HandleUnbanStickerUser)
+	registry.Register("listsu", antiStickerHandler.HandleListBannedUsers)
 
 	registry.Register("menu", wrap(menuHandler.HandleMenu))
 	registry.Register("stat", wrap(sysHandler.HandleStats))
