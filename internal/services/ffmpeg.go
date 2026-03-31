@@ -35,7 +35,7 @@ func (f *FFmpegService) ImageToWebP(inputData []byte) ([]byte, error) {
 
 	cmd := exec.Command("ffmpeg",
 		"-i", inputPath,
-		"-vf", "scale='if(gt(iw,ih),512,-1)':'if(gt(iw,ih),-1,512)',format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000",
+		"-vf", "scale='if(gt(iw,ih),510,-1)':'if(gt(iw,ih),-1,510)',format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000",
 		"-c:v", "libwebp",
 		"-preset", "default",
 		"-loop", "0",
@@ -74,7 +74,7 @@ func (f *FFmpegService) VideoToWebP(inputData []byte, ext string) ([]byte, error
 	cmd := exec.Command("ffmpeg",
 		"-i", inputPath,
 		"-t", "8",
-		"-vf", "scale='if(gt(iw,ih),512,-1)':'if(gt(iw,ih),-1,512)',fps=15,format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000",
+		"-vf", "scale='if(gt(iw,ih),510,-1)':'if(gt(iw,ih),-1,510)',fps=15,format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000",
 		"-c:v", "libwebp",
 		"-preset", "default",
 		"-loop", "0",
@@ -194,7 +194,7 @@ func (f *FFmpegService) GenerateBratSticker(text string) ([]byte, error) {
 	args := []string{
 		"-background", "white",
 		"-fill", "black",
-		"-font", "DejaVu-Sans", // Fallback if Arial is missing
+		"-font", "Arial",       // Try Arial first
 		"-size", "450x450",     // Tighter box so it doesn't touch edges
 		"-gravity", "West",     // Left aligned, vertically centered
 		fmt.Sprintf(`caption:%s`, text),
@@ -203,6 +203,7 @@ func (f *FFmpegService) GenerateBratSticker(text string) ([]byte, error) {
 		"-bordercolor", "white", 
 		"-border", "31",        // 450 + 31*2 = 512
 		"-resize", "512x512!",  // Ensure exact 512x512 sticker size
+		"-strip",               // STRIP ALL METADATA/ICC PROFILES to prevent WhatsApp Mobile crash!
 		outputPath,
 	}
 
