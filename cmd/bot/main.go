@@ -132,6 +132,9 @@ func main() {
 		}
 	})
 
+	// Start temporary files auto-cleaner (hourly scan, delete files older than 1 hour)
+	services.StartTempCleaner(1*time.Hour, 1*time.Hour)
+
 	// Connect to WhatsApp.
 	if client.Store.ID == nil {
 		// No session found, generate QR code for login.

@@ -192,6 +192,14 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 	}
 
 	text := strings.Join(args, " ")
+	if len(text) > 20 {
+		utils.ReplyTextDirect(client, evt, "Teks terlalu panjang! Maksimal 20 karakter.")
+		return
+	}
+	// Sanitize against ImageMagick injection vectors like `@file` or `-format`
+	if strings.HasPrefix(text, "@") || strings.HasPrefix(text, "-") {
+		text = " " + text
+	}
 
 	// Find the media source: current message or quoted message.
 	var targetMsg = evt.Message
@@ -254,6 +262,14 @@ func (h *MediaHandler) HandleBrat(client *whatsmeow.Client, evt *events.Message,
 	}
 
 	text := strings.Join(args, " ")
+	if len(text) > 40 {
+		utils.ReplyTextDirect(client, evt, "Teks terlalu panjang! Maksimal 40 karakter.")
+		return
+	}
+	// Sanitize against ImageMagick injection vectors
+	if strings.HasPrefix(text, "@") || strings.HasPrefix(text, "-") {
+		text = " " + text
+	}
 	utils.ReplyTextDirect(client, evt, "Sedang membuat sticker brat...")
 
 	// Generate brat sticker image data.

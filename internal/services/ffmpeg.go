@@ -123,6 +123,7 @@ func (f *FFmpegService) WebPToImage(inputData []byte) ([]byte, error) {
 
 // AddTextToWebP overlays meme-style bottom text onto a WebP sticker.
 // Text is rendered in white with a black border, centered at the bottom.
+// Uses ImageMagick for flawless word-wrapping and auto-scaling, then FFmpeg for animated WebP overlay.
 func (f *FFmpegService) AddTextToWebP(inputData []byte, text string) ([]byte, error) {
 	tmpDir, err := os.MkdirTemp("", "chisabot-ts-*")
 	if err != nil {
@@ -131,24 +132,41 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string) ([]byte, er
 	defer os.RemoveAll(tmpDir)
 
 	inputPath := filepath.Join(tmpDir, "input.webp")
+	textOverlayPath := filepath.Join(tmpDir, "text.png")
 	outputPath := filepath.Join(tmpDir, "output.webp")
 
 	if err := os.WriteFile(inputPath, inputData, 0644); err != nil {
 		return nil, fmt.Errorf("failed to write input: %w", err)
 	}
 
-	// Escape special characters for FFmpeg drawtext.
-	safeText := escapeFfmpegText(text)
+	// 1. Generate text overlay image with ImageMagick (handles word-wrap and auto-scale).
+	// We use 480x180 to leave a 16px margin on 512x512 stickers.
+	imBin := "magick"
+	if _, err := exec.LookPath(imBin); err != nil {
+		imBin = "convert"
+	}
+	imArgs := []string{
+		"-background", "none",
+		"-fill", "white",
+		"-stroke", "black",
+		"-strokewidth", "3",
+		"-font", "DejaVu-Sans-Bold", // System default bold fallback
+		"-gravity", "center",
+		"-size", "480x180",
+		fmt.Sprintf("caption:%s", text),
+		textOverlayPath,
+	}
+	imCmd := exec.Command(imBin, imArgs...)
+	if out, err := imCmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("imagemagick text generation failed: %w\nOutput: %s", err, string(out))
+	}
 
-	// drawtext: white text, black border, centered at bottom.
-	drawFilter := fmt.Sprintf(
-		"drawtext=fontfile=%s:text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=6:x=(w-text_w)/2:y=h-text_h-20",
-		config.MemeFontPath, safeText,
-	)
-
+	// 2. Overlay the text image onto the WebP using FFmpeg.
+	// We place it at the bottom-center: x=(W-w)/2, y=H-h-16
 	cmd := exec.Command("ffmpeg",
 		"-i", inputPath,
-		"-vf", drawFilter,
+		"-i", textOverlayPath,
+		"-filter_complex", "[0:v][1:v]overlay=(W-w)/2:H-h-16",
 		"-c:v", "libwebp",
 		"-preset", "default",
 		"-quality", "80",
@@ -159,7 +177,7 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string) ([]byte, er
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("ffmpeg drawtext failed: %w\nOutput: %s", err, string(output))
+		return nil, fmt.Errorf("ffmpeg overlay failed: %w\nOutput: %s", err, string(output))
 	}
 
 	return os.ReadFile(outputPath)
