@@ -119,9 +119,28 @@ func (f *FFmpegService) WebPToImage(inputData []byte) ([]byte, error) {
 	return os.ReadFile(outputPath)
 }
 
+// wrapText inserts line breaks so text fits approximately within maxChars per line.
+func wrapText(text string, maxChars int) string {
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return ""
+	}
+	var lines []string
+	currentLine := words[0]
+	for _, word := range words[1:] {
+		if len(currentLine)+1+len(word) <= maxChars {
+			currentLine += " " + word
+		} else {
+			lines = append(lines, currentLine)
+			currentLine = word
+		}
+	}
+	lines = append(lines, currentLine)
+	return strings.Join(lines, "\n")
+}
+
 // AddTextToWebP overlays meme-style bottom text onto a WebP sticker.
 // Text is rendered in white with a black border, centered at the bottom.
-// Uses ImageMagick for flawless word-wrapping and auto-scaling, then FFmpeg for animated WebP overlay.
 func (f *FFmpegService) AddTextToWebP(inputData []byte, text string) ([]byte, error) {
 	tmpDir, err := os.MkdirTemp("", "chisabot-ts-*")
 	if err != nil {
@@ -130,41 +149,27 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string) ([]byte, er
 	defer os.RemoveAll(tmpDir)
 
 	inputPath := filepath.Join(tmpDir, "input.webp")
-	textOverlayPath := filepath.Join(tmpDir, "text.png")
 	outputPath := filepath.Join(tmpDir, "output.webp")
 
 	if err := os.WriteFile(inputPath, inputData, 0644); err != nil {
 		return nil, fmt.Errorf("failed to write input: %w", err)
 	}
 
-	// 1. Generate text overlay image with ImageMagick (handles word-wrap and auto-scale).
-	// We use 480x180 to leave a 16px margin on 512x512 stickers.
-	imBin := "magick"
-	if _, err := exec.LookPath(imBin); err != nil {
-		imBin = "convert"
-	}
-	imArgs := []string{
-		"-background", "none",
-		"-fill", "white",
-		"-stroke", "black",
-		"-strokewidth", "3",
-		"-font", "DejaVu-Sans-Bold", // System default bold fallback
-		"-gravity", "center",
-		"-size", "480x180",
-		fmt.Sprintf("caption:%s", text),
-		textOverlayPath,
-	}
-	imCmd := exec.Command(imBin, imArgs...)
-	if out, err := imCmd.CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("imagemagick text generation failed: %w\nOutput: %s", err, string(out))
-	}
+	// Wrap text so it doesn't overflow the 512px sticker width (approx 13 chars max at fontsize 72)
+	wrappedText := wrapText(text, 13)
 
-	// 2. Overlay the text image onto the WebP using FFmpeg.
-	// We place it at the bottom-center: x=(W-w)/2, y=H-h-16
+	// Escape special characters for FFmpeg drawtext.
+	safeText := escapeFfmpegText(wrappedText)
+
+	// drawtext: white text, black border, centered at bottom.
+	drawFilter := fmt.Sprintf(
+		"drawtext=fontfile=%s:text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=4:x=(w-text_w)/2:y=h-text_h-20:line_spacing=5:text_align=C",
+		"/usr/share/fonts/TTF/DejaVuSans-Bold.ttf", safeText,
+	)
+
 	cmd := exec.Command("ffmpeg",
 		"-i", inputPath,
-		"-i", textOverlayPath,
-		"-filter_complex", "[0:v][1:v]overlay=(W-w)/2:H-h-16",
+		"-vf", drawFilter,
 		"-c:v", "libwebp",
 		"-preset", "default",
 		"-quality", "80",
@@ -175,7 +180,7 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string) ([]byte, er
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("ffmpeg overlay failed: %w\nOutput: %s", err, string(output))
+		return nil, fmt.Errorf("ffmpeg drawtext failed: %w\nOutput: %s", err, string(output))
 	}
 
 	return os.ReadFile(outputPath)
@@ -210,14 +215,12 @@ func (f *FFmpegService) GenerateBratSticker(text string) ([]byte, error) {
 	args := []string{
 		"-background", "white",
 		"-fill", "black",
-		"-font", "Arial",       // Try Arial first
-		"-size", "450x450",     // Tighter box so it doesn't touch edges
+		"-font", "DejaVu-Sans", // More robust font handling across different Linux bounds
+		"-size", "512x512",     // Stretch box to absolute boundary to eliminate edge margins
 		"-gravity", "West",     // Left aligned, vertically centered
 		fmt.Sprintf(`caption:%s`, text),
 		"-filter", "box",
 		"-blur", "0x2.5",       // More blur as requested ("agak blur")
-		"-bordercolor", "white", 
-		"-border", "31",        // 450 + 31*2 = 512
 		"-resize", "512x512!",  // Ensure exact 512x512 sticker size
 		"-strip",               // STRIP ALL METADATA/ICC PROFILES to prevent WhatsApp Mobile crash!
 		outputPath,
