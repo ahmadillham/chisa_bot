@@ -192,8 +192,8 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 	}
 
 	text := strings.Join(args, " ")
-	if len(text) > 20 {
-		utils.ReplyTextDirect(client, evt, "Teks terlalu panjang! Maksimal 20 karakter.")
+	if len(text) > 35 {
+		utils.ReplyTextDirect(client, evt, "Teks terlalu panjang! Maksimal 35 karakter.")
 		return
 	}
 	// Sanitize against ImageMagick injection vectors like `@file` or `-format`
@@ -262,8 +262,8 @@ func (h *MediaHandler) HandleBrat(client *whatsmeow.Client, evt *events.Message,
 	}
 
 	text := strings.Join(args, " ")
-	if len(text) > 40 {
-		utils.ReplyTextDirect(client, evt, "Teks terlalu panjang! Maksimal 40 karakter.")
+	if len(text) > 50 {
+		utils.ReplyTextDirect(client, evt, "Teks terlalu panjang! Maksimal 50 karakter.")
 		return
 	}
 	// Sanitize against ImageMagick injection vectors
