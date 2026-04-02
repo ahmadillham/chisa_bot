@@ -68,12 +68,12 @@ func (h *GroupHandler) HandleGroupParticipants(client *whatsmeow.Client, evt *ev
 // HandleTagAll mentions all group members (admin only).
 func (h *GroupHandler) HandleTagAll(client *whatsmeow.Client, evt *events.Message) {
 	if !evt.Info.IsGroup {
-		utils.ReplyTextDirect(client, evt, "⚠️ Perintah ini hanya bisa digunakan di grup.")
+		utils.ReplyTextDirect(client, evt, "Perintah ini hanya bisa digunakan di grup.")
 		return
 	}
 
 	if !h.IsAdmin(client, evt.Info.Chat, evt.Info.Sender) {
-		utils.ReplyTextDirect(client, evt, "⚠️ Hanya admin yang bisa menggunakan perintah ini.")
+		utils.ReplyTextDirect(client, evt, "Hanya admin yang bisa menggunakan perintah ini.")
 		return
 	}
 
@@ -113,19 +113,19 @@ func (h *GroupHandler) TagAll(client *whatsmeow.Client, chatJID types.JID, quote
 // HandleKick kicks a member (admin only).
 func (h *GroupHandler) HandleKick(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if !evt.Info.IsGroup {
-		utils.ReplyTextDirect(client, evt, "⚠️ Perintah ini hanya bisa digunakan di grup.")
+		utils.ReplyTextDirect(client, evt, "Perintah ini hanya bisa digunakan di grup.")
 		return
 	}
 
 	if !h.IsAdmin(client, evt.Info.Chat, evt.Info.Sender) {
-		utils.ReplyTextDirect(client, evt, "⚠️ Hanya admin yang bisa menggunakan perintah ini.")
+		utils.ReplyTextDirect(client, evt, "Hanya admin yang bisa menggunakan perintah ini.")
 		return
 	}
 
 	targetJID, found := utils.GetTargetJID(evt)
 
 	if !found {
-		utils.ReplyTextDirect(client, evt, "⚠️ Tag atau reply user yang ingin di-kick.")
+		utils.ReplyTextDirect(client, evt, "Tag atau reply user yang ingin di-kick.")
 		return
 	}
 
@@ -136,7 +136,7 @@ func (h *GroupHandler) HandleKick(client *whatsmeow.Client, evt *events.Message,
 	_, err := client.UpdateGroupParticipants(context.Background(), evt.Info.Chat, []types.JID{targetJID}, whatsmeow.ParticipantChangeRemove)
 	if err != nil {
 		log.Printf("[kick] failed: %v", err)
-		utils.ReplyTextDirect(client, evt, "❌ Gagal kick member. Pastikan bot adalah admin.")
+		utils.ReplyTextDirect(client, evt, "Gagal kick member. Pastikan bot adalah admin.")
 		return
 	}
 }
@@ -192,7 +192,7 @@ func (h *GroupHandler) HandleWarn(client *whatsmeow.Client, evt *events.Message,
 	if !found {
 		// 3. Try parsing args if phone number is provided (advanced usage, optional but good)
 		// For now simple usage as requested: Reply or Tag.
-		utils.ReplyTextDirect(client, evt, "⚠️ Reply pesan atau tag member yang ingin di-warn.\nContoh: .warn @member")
+		utils.ReplyTextDirect(client, evt, "Reply pesan atau tag member yang ingin di-warn.\nContoh: .warn @member")
 		return
 	}
 
@@ -201,7 +201,7 @@ func (h *GroupHandler) HandleWarn(client *whatsmeow.Client, evt *events.Message,
 
 	if count >= config.MaxWarningsBeforeKick {
 		// KICK
-		utils.ReplyTextDirect(client, evt, fmt.Sprintf("⚠️ *PERINGATAN KE-%d (FINAL)*\n@%s otomatis di-kick dari grup.", count, targetJID.User))
+		utils.ReplyTextDirect(client, evt, fmt.Sprintf("*PERINGATAN KE-%d (FINAL)*\n@%s otomatis di-kick dari grup.", count, targetJID.User))
 		
 		// Give a moment for the message to send before kicking (optional, but good practice)
 		time.Sleep(1 * time.Second)
@@ -210,14 +210,14 @@ func (h *GroupHandler) HandleWarn(client *whatsmeow.Client, evt *events.Message,
 		_, err := client.UpdateGroupParticipants(context.Background(), evt.Info.Chat, []types.JID{targetJID}, whatsmeow.ParticipantChangeRemove)
 		if err != nil {
 			log.Printf("[warn] failed to kick: %v", err)
-			utils.ReplyTextDirect(client, evt, "❌ Gagal meng-kick member automatically. Pastikan bot adalah admin.")
+			utils.ReplyTextDirect(client, evt, "Gagal meng-kick member automatically. Pastikan bot adalah admin.")
 		} else {
 			// Reset warnings on successful kick
 			h.warnStore.ResetWarning(evt.Info.Chat.String(), targetJID.String())
 		}
 	} else {
 		// WARNING 1 or 2
-		msg := fmt.Sprintf("⚠️ *PERINGATAN KE-%d*\n\n@%s, tolong ikuti aturan grup.\nPeringatan ke-%d = Kick.", count, targetJID.User, config.MaxWarningsBeforeKick)
+		msg := fmt.Sprintf("*PERINGATAN KE-%d*\n\n@%s, tolong ikuti aturan grup.\nPeringatan ke-%d = Kick.", count, targetJID.User, config.MaxWarningsBeforeKick)
 		// Send as mention
 		h.sendGroupMention(client, evt.Info.Chat, msg, []string{targetJID.String()})
 	}
@@ -257,28 +257,28 @@ func (h *GroupHandler) HandleResetWarn(client *whatsmeow.Client, evt *events.Mes
 	}
 
 	if !found {
-		utils.ReplyTextDirect(client, evt, "⚠️ Reply pesan atau tag member yang ingin di-reset warning-nya.\nContoh: .resetwarn @member")
+		utils.ReplyTextDirect(client, evt, "Reply pesan atau tag member yang ingin di-reset warning-nya.\nContoh: .resetwarn @member")
 		return
 	}
 
 	h.warnStore.ResetWarning(evt.Info.Chat.String(), targetJID.String())
-	utils.ReplyTextDirect(client, evt, fmt.Sprintf("✅ Warning untuk @%s telah di-reset menjadi 0.", targetJID.User))
+	utils.ReplyTextDirect(client, evt, fmt.Sprintf("Warning untuk @%s telah di-reset menjadi 0.", targetJID.User))
 }
 
 // HandleAutoTag toggles the auto-tag feature for a group (admin only).
 func (h *GroupHandler) HandleAutoTag(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if !evt.Info.IsGroup {
-		utils.ReplyTextDirect(client, evt, "⚠️ Perintah ini hanya bisa digunakan di grup.")
+		utils.ReplyTextDirect(client, evt, "Perintah ini hanya bisa digunakan di grup.")
 		return
 	}
 
 	if !h.IsAdmin(client, evt.Info.Chat, evt.Info.Sender) {
-		utils.ReplyTextDirect(client, evt, "⚠️ Hanya admin yang bisa menggunakan perintah ini.")
+		utils.ReplyTextDirect(client, evt, "Hanya admin yang bisa menggunakan perintah ini.")
 		return
 	}
 
 	if len(args) == 0 {
-		utils.ReplyTextDirect(client, evt, "⚠️ Gunakan format:\n.autotag on\n.autotag off")
+		utils.ReplyTextDirect(client, evt, "Gunakan format:\n.autotag on\n.autotag off")
 		return
 	}
 
@@ -286,11 +286,11 @@ func (h *GroupHandler) HandleAutoTag(client *whatsmeow.Client, evt *events.Messa
 	switch args[0] {
 	case "on":
 		h.autoTagStore.SetDisabled(groupSt, false)
-		utils.ReplyTextDirect(client, evt, "✅ Auto-tag TikTok berhasil diaktifkan untuk grup ini.")
+		utils.ReplyTextDirect(client, evt, "Auto-tag TikTok berhasil diaktifkan untuk grup ini.")
 	case "off":
 		h.autoTagStore.SetDisabled(groupSt, true)
-		utils.ReplyTextDirect(client, evt, "✅ Auto-tag TikTok berhasil dinonaktifkan untuk grup ini.")
+		utils.ReplyTextDirect(client, evt, "Auto-tag TikTok berhasil dinonaktifkan untuk grup ini.")
 	default:
-		utils.ReplyTextDirect(client, evt, "⚠️ Parameter tidak valid. Gunakan 'on' atau 'off'.")
+		utils.ReplyTextDirect(client, evt, "Parameter tidak valid. Gunakan 'on' atau 'off'.")
 	}
 }

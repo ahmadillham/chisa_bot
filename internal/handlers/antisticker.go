@@ -135,15 +135,15 @@ func (h *AntiStickerHandler) HandleBanSticker(client *whatsmeow.Client, evt *eve
 	}
 
 	if hashHex == "" {
-		utils.ReplyTextDirect(client, evt, "⚠️ Reply sticker yang ingin di-ban, atau kirim:\n.bansticker <hash> [alias]")
+		utils.ReplyTextDirect(client, evt, "Reply sticker yang ingin di-ban, atau kirim:\n.bansticker <hash> [alias]")
 		return
 	}
 
 	usedAlias, added := h.store.Add(hashHex, alias)
 	if added {
-		utils.ReplyTextDirect(client, evt, fmt.Sprintf("✅ Sticker berhasil di-ban.\nAlias: *%s*\nTotal banned: %d", usedAlias, h.store.Count()))
+		utils.ReplyTextDirect(client, evt, fmt.Sprintf("Sticker berhasil di-ban.\nAlias: *%s*\nTotal banned: %d", usedAlias, h.store.Count()))
 	} else {
-		utils.ReplyTextDirect(client, evt, fmt.Sprintf("⚠️ Sticker ini sudah ada di daftar banned (alias: *%s*).", usedAlias))
+		utils.ReplyTextDirect(client, evt, fmt.Sprintf("Sticker ini sudah ada di daftar banned (alias: *%s*).", usedAlias))
 	}
 }
 
@@ -177,14 +177,14 @@ func (h *AntiStickerHandler) HandleUnbanSticker(client *whatsmeow.Client, evt *e
 	}
 
 	if identifier == "" {
-		utils.ReplyTextDirect(client, evt, "⚠️ Reply sticker atau kirim:\n.unbansticker <alias>\n.unbansticker <hash>")
+		utils.ReplyTextDirect(client, evt, "Reply sticker atau kirim:\n.unbansticker <alias>\n.unbansticker <hash>")
 		return
 	}
 
 	if h.store.Remove(identifier) {
-		utils.ReplyTextDirect(client, evt, fmt.Sprintf("✅ Sticker berhasil di-unban.\nTotal banned: %d", h.store.Count()))
+		utils.ReplyTextDirect(client, evt, fmt.Sprintf("Sticker berhasil di-unban.\nTotal banned: %d", h.store.Count()))
 	} else {
-		utils.ReplyTextDirect(client, evt, "⚠️ Alias atau hash tidak ditemukan di daftar banned.")
+		utils.ReplyTextDirect(client, evt, "Alias atau hash tidak ditemukan di daftar banned.")
 	}
 }
 
@@ -201,11 +201,11 @@ func (h *AntiStickerHandler) HandleListBanned(client *whatsmeow.Client, evt *eve
 	}
 
 	list := h.store.ListFormatted()
-	utils.ReplyTextDirect(client, evt, fmt.Sprintf("🚫 *Daftar Sticker Banned*\n\n%s", list))
+	utils.ReplyTextDirect(client, evt, fmt.Sprintf("*Daftar Sticker Banned*\n\n%s", list))
 }
 
 // HandleBanStickerUser bans a user from sending any sticker in the group (admin only).
-// Usage: reply or tag user with .bansu @user
+// Usage: reply or tag user with .banuser @user
 func (h *AntiStickerHandler) HandleBanStickerUser(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if !evt.Info.IsGroup {
 		utils.ReplyTextDirect(client, evt, config.MsgOnlyGroup)
@@ -219,20 +219,20 @@ func (h *AntiStickerHandler) HandleBanStickerUser(client *whatsmeow.Client, evt 
 
 	targetJID, found := utils.GetTargetJID(evt)
 	if !found {
-		utils.ReplyTextDirect(client, evt, "⚠️ Reply pesan atau tag member yang ingin dilarang mengirim sticker.\nContoh: .bansu @member")
+		utils.ReplyTextDirect(client, evt, "Reply pesan atau tag member yang ingin dilarang mengirim sticker.\nContoh: .banuser @member")
 		return
 	}
 
 	targetStr := targetJID.ToNonAD().String()
-	mentionText := fmt.Sprintf("✅ @%s sekarang dilarang mengirim sticker.", targetJID.ToNonAD().User)
+	mentionText := fmt.Sprintf("@%s sekarang dilarang mengirim sticker.", targetJID.ToNonAD().User)
 	if !h.userStore.Add(targetStr) {
-		mentionText = fmt.Sprintf("⚠️ @%s sudah ada di daftar larangan.", targetJID.ToNonAD().User)
+		mentionText = fmt.Sprintf("@%s sudah ada di daftar larangan.", targetJID.ToNonAD().User)
 	}
 	utils.ReplyTextDirectWithMentions(client, evt, mentionText, []string{targetStr})
 }
 
 // HandleUnbanStickerUser unbans a user, allowing them to send stickers again (admin only).
-// Usage: reply or tag user with .unbansu @user
+// Usage: reply or tag user with .unbanuser @user
 func (h *AntiStickerHandler) HandleUnbanStickerUser(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if !evt.Info.IsGroup {
 		utils.ReplyTextDirect(client, evt, config.MsgOnlyGroup)
@@ -246,14 +246,14 @@ func (h *AntiStickerHandler) HandleUnbanStickerUser(client *whatsmeow.Client, ev
 
 	targetJID, found := utils.GetTargetJID(evt)
 	if !found {
-		utils.ReplyTextDirect(client, evt, "⚠️ Reply pesan atau tag member yang ingin diizinkan mengirim sticker lagi.\nContoh: .unbansu @member")
+		utils.ReplyTextDirect(client, evt, "Reply pesan atau tag member yang ingin diizinkan mengirim sticker lagi.\nContoh: .unbanuser @member")
 		return
 	}
 
 	targetStr := targetJID.ToNonAD().String()
-	mentionText := fmt.Sprintf("✅ @%s sekarang diizinkan mengirim sticker kembali.", targetJID.ToNonAD().User)
+	mentionText := fmt.Sprintf("@%s sekarang diizinkan mengirim sticker kembali.", targetJID.ToNonAD().User)
 	if !h.userStore.Remove(targetStr) {
-		mentionText = fmt.Sprintf("⚠️ @%s tidak ada di daftar larangan.", targetJID.ToNonAD().User)
+		mentionText = fmt.Sprintf("@%s tidak ada di daftar larangan.", targetJID.ToNonAD().User)
 	}
 	utils.ReplyTextDirectWithMentions(client, evt, mentionText, []string{targetStr})
 }
@@ -271,5 +271,5 @@ func (h *AntiStickerHandler) HandleListBannedUsers(client *whatsmeow.Client, evt
 	}
 
 	list := h.userStore.ListFormatted()
-	utils.ReplyTextDirect(client, evt, fmt.Sprintf("🚫 *Daftar User Dilarang Kirim Sticker*\n\n%s", list))
+	utils.ReplyTextDirect(client, evt, fmt.Sprintf("*Daftar User Dilarang Kirim Sticker*\n\n%s", list))
 }

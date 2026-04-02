@@ -88,9 +88,9 @@ func main() {
 	registry.Register("unban", antiStickerHandler.HandleUnbanSticker) // alias
 	registry.Register("liststicker", antiStickerHandler.HandleListBanned)
 
-	registry.Register("bansu", antiStickerHandler.HandleBanStickerUser)
-	registry.Register("unbansu", antiStickerHandler.HandleUnbanStickerUser)
-	registry.Register("listsu", antiStickerHandler.HandleListBannedUsers)
+	registry.Register("banuser", antiStickerHandler.HandleBanStickerUser)
+	registry.Register("unbanuser", antiStickerHandler.HandleUnbanStickerUser)
+	registry.Register("listuser", antiStickerHandler.HandleListBannedUsers)
 
 	registry.Register("menu", wrap(menuHandler.HandleMenu))
 	registry.Register("stat", wrap(sysHandler.HandleStats))
@@ -122,13 +122,13 @@ func main() {
 			}()
 
 		case *events.Connected:
-			log.Println("✅ Bot connected successfully!")
+			log.Println("Bot connected successfully!")
 
 		case *events.LoggedOut:
-			log.Println("⚠️ Bot logged out. Please re-authenticate.")
+			log.Println("Bot logged out. Please re-authenticate.")
 
 		case *events.StreamReplaced:
-			log.Println("⚠️ Stream replaced (another device connected).")
+			log.Println("Stream replaced (another device connected).")
 		}
 	})
 
@@ -147,9 +147,9 @@ func main() {
 				qrterminal.GenerateHalfBlock(evt.Code, qrterminal.L, os.Stdout)
 				fmt.Println()
 			case "login":
-				log.Println("✅ Login successful!")
+				log.Println("Login successful!")
 			case "timeout":
-				log.Println("❌ QR code timed out. Please restart the bot.")
+				log.Println("QR code timed out. Please restart the bot.")
 				os.Exit(1)
 			}
 		}

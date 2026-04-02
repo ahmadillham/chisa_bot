@@ -36,7 +36,7 @@ func (h *MediaHandler) HandleSticker(client *whatsmeow.Client, evt *events.Messa
 		// Check quoted message.
 		quoted := utils.GetQuotedMessage(evt)
 		if quoted == nil || !utils.IsMediaMessage(quoted) {
-			if err := utils.ReplyTextDirect(client, evt, "⚠️ Kirim atau reply gambar/video/GIF dengan caption .sticker atau .s"); err != nil {
+			if err := utils.ReplyTextDirect(client, evt, "Kirim atau reply gambar/video/GIF dengan caption .sticker atau .s"); err != nil {
 				log.Printf("[sticker] failed to reply: %v", err)
 			}
 			return
@@ -48,7 +48,7 @@ func (h *MediaHandler) HandleSticker(client *whatsmeow.Client, evt *events.Messa
 	data, err := utils.DownloadMediaFromMessage(client, mediaMsg)
 	if err != nil {
 		log.Printf("[sticker] failed to download media: %v", err)
-		utils.ReplyTextDirect(client, evt, "❌ Gagal download media.")
+		utils.ReplyTextDirect(client, evt, "Gagal download media.")
 		return
 	}
 
@@ -74,7 +74,7 @@ func (h *MediaHandler) HandleSticker(client *whatsmeow.Client, evt *events.Messa
 
 	if err != nil {
 		log.Printf("[sticker] conversion failed: %v", err)
-		utils.ReplyTextDirect(client, evt, "❌ Gagal convert ke sticker.")
+		utils.ReplyTextDirect(client, evt, "Gagal convert ke sticker.")
 		return
 	}
 
@@ -88,7 +88,7 @@ func (h *MediaHandler) HandleSticker(client *whatsmeow.Client, evt *events.Messa
 	// Send the sticker.
 	if err := utils.ReplySticker(client, evt, webpData, isAnimated); err != nil {
 		log.Printf("[sticker] failed to send sticker: %v", err)
-		utils.ReplyTextDirect(client, evt, "❌ Gagal mengirim sticker.")
+		utils.ReplyTextDirect(client, evt, "Gagal mengirim sticker.")
 	}
 }
 
@@ -97,7 +97,7 @@ func (h *MediaHandler) HandleStickerToImage(client *whatsmeow.Client, evt *event
 	// Get the sticker from a quoted message.
 	quoted := utils.GetQuotedMessage(evt)
 	if quoted == nil || quoted.GetStickerMessage() == nil {
-		utils.ReplyTextDirect(client, evt, "⚠️ Reply sticker dengan caption .toimg")
+		utils.ReplyTextDirect(client, evt, "Reply sticker dengan caption .toimg")
 		return
 	}
 
@@ -105,7 +105,7 @@ func (h *MediaHandler) HandleStickerToImage(client *whatsmeow.Client, evt *event
 	data, err := utils.DownloadMediaFromMessage(client, quoted)
 	if err != nil {
 		log.Printf("[toimg] failed to download sticker: %v", err)
-		utils.ReplyTextDirect(client, evt, "❌ Gagal download sticker.")
+		utils.ReplyTextDirect(client, evt, "Gagal download sticker.")
 		return
 	}
 
@@ -113,14 +113,14 @@ func (h *MediaHandler) HandleStickerToImage(client *whatsmeow.Client, evt *event
 	pngData, err := h.ffmpeg.WebPToImage(data)
 	if err != nil {
 		log.Printf("[toimg] conversion failed: %v", err)
-		utils.ReplyTextDirect(client, evt, "❌ Gagal convert sticker ke gambar.")
+		utils.ReplyTextDirect(client, evt, "Gagal convert sticker ke gambar.")
 		return
 	}
 
 	// Send the image.
 	if err := utils.ReplyImage(client, evt, pngData, "image/png", ""); err != nil {
 		log.Printf("[toimg] failed to send image: %v", err)
-		utils.ReplyTextDirect(client, evt, "❌ Gagal mengirim gambar.")
+		utils.ReplyTextDirect(client, evt, "Gagal mengirim gambar.")
 	}
 }
 
@@ -129,7 +129,7 @@ func (h *MediaHandler) HandleRetrieveViewOnce(client *whatsmeow.Client, evt *eve
 	// Get quoted message.
 	quoted := utils.GetQuotedMessage(evt)
 	if quoted == nil || !utils.IsMediaMessage(quoted) {
-		utils.ReplyTextDirect(client, evt, "⚠️ Reply pesan View Once (sekali lihat) dengan caption .showimg")
+		utils.ReplyTextDirect(client, evt, "Reply pesan View Once (sekali lihat) dengan caption .showimg")
 		return
 	}
 
@@ -137,7 +137,7 @@ func (h *MediaHandler) HandleRetrieveViewOnce(client *whatsmeow.Client, evt *eve
 	data, err := utils.DownloadMediaFromMessage(client, quoted)
 	if err != nil {
 		log.Printf("[save] failed to download media: %v", err)
-		utils.ReplyTextDirect(client, evt, "❌ Gagal download media.")
+		utils.ReplyTextDirect(client, evt, "Gagal download media.")
 		return
 	}
 
@@ -156,7 +156,7 @@ func (h *MediaHandler) HandleRetrieveViewOnce(client *whatsmeow.Client, evt *eve
 
 	if err != nil {
 		log.Printf("[save] failed to send media: %v", err)
-		utils.ReplyTextDirect(client, evt, "❌ Gagal mengirim ulang media.")
+		utils.ReplyTextDirect(client, evt, "Gagal mengirim ulang media.")
 	}
 }
 
@@ -164,7 +164,7 @@ func (h *MediaHandler) HandleRetrieveViewOnce(client *whatsmeow.Client, evt *eve
 func (h *MediaHandler) HandleImage(client *whatsmeow.Client, evt *events.Message) {
 	quoted := utils.GetQuotedMessage(evt)
 	if quoted == nil {
-		utils.ReplyTextDirect(client, evt, "⚠️ Reply sticker atau pesan View Once dengan caption .toimg")
+		utils.ReplyTextDirect(client, evt, "Reply sticker atau pesan View Once dengan caption .toimg")
 		return
 	}
 
@@ -180,14 +180,14 @@ func (h *MediaHandler) HandleImage(client *whatsmeow.Client, evt *events.Message
 		return
 	}
 
-	utils.ReplyTextDirect(client, evt, "⚠️ Pesan yang di-reply bukan sticker atau View Once.")
+	utils.ReplyTextDirect(client, evt, "Pesan yang di-reply bukan sticker atau View Once.")
 }
 
 // HandleTextSticker adds meme-style text to a sticker or image (command: .ts <text>).
 // Usage: send/reply sticker or image with .ts TEKS
 func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if len(args) == 0 {
-		utils.ReplyTextDirect(client, evt, "⚠️ Penggunaan: kirim/reply gambar atau sticker dengan .ts <teks>\nContoh: .ts MENGANCAM")
+		utils.ReplyTextDirect(client, evt, "Penggunaan: kirim/reply gambar atau sticker dengan .ts <teks>\nContoh: .ts MENGANCAM")
 		return
 	}
 
@@ -203,7 +203,7 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 	isSticker := targetMsg.GetStickerMessage() != nil
 	isImage := targetMsg.GetImageMessage() != nil
 	if !isSticker && !isImage {
-		utils.ReplyTextDirect(client, evt, "⚠️ Kirim atau reply gambar/sticker dengan caption .ts <teks>")
+		utils.ReplyTextDirect(client, evt, "Kirim atau reply gambar/sticker dengan caption .ts <teks>")
 		return
 	}
 
@@ -211,7 +211,7 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 	data, err := utils.DownloadMediaFromMessage(client, targetMsg)
 	if err != nil {
 		log.Printf("[ts] failed to download: %v", err)
-		utils.ReplyTextDirect(client, evt, "❌ Gagal download media.")
+		utils.ReplyTextDirect(client, evt, "Gagal download media.")
 		return
 	}
 
@@ -221,7 +221,7 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 		webpInput, err = h.ffmpeg.ImageToWebP(data)
 		if err != nil {
 			log.Printf("[ts] failed to convert image to webp: %v", err)
-			utils.ReplyTextDirect(client, evt, "❌ Gagal konversi gambar ke WebP.")
+			utils.ReplyTextDirect(client, evt, "Gagal konversi gambar ke WebP.")
 			return
 		}
 	} else {
@@ -232,7 +232,7 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 	webpData, err := h.ffmpeg.AddTextToWebP(webpInput, text)
 	if err != nil {
 		log.Printf("[ts] failed to add text: %v", err)
-		utils.ReplyTextDirect(client, evt, "❌ Gagal menambahkan teks ke sticker.")
+		utils.ReplyTextDirect(client, evt, "Gagal menambahkan teks ke sticker.")
 		return
 	}
 
@@ -242,25 +242,25 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 	// Send as sticker.
 	if err := utils.ReplySticker(client, evt, webpData, false); err != nil {
 		log.Printf("[ts] failed to send sticker: %v", err)
-		utils.ReplyTextDirect(client, evt, "❌ Gagal mengirim sticker.")
+		utils.ReplyTextDirect(client, evt, "Gagal mengirim sticker.")
 	}
 }
 
 // HandleBrat creates a 'brat' style sticker from text.
 func (h *MediaHandler) HandleBrat(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if len(args) == 0 {
-		utils.ReplyTextDirect(client, evt, "⚠️ Penggunaan: .brat <teks>\nContoh: .brat hello saya ilham")
+		utils.ReplyTextDirect(client, evt, "Penggunaan: .brat <teks>\nContoh: .brat hello saya ilham")
 		return
 	}
 
 	text := strings.Join(args, " ")
-	utils.ReplyTextDirect(client, evt, "⏳ Sedang membuat sticker brat...")
+	utils.ReplyTextDirect(client, evt, "Sedang membuat sticker brat...")
 
 	// Generate brat sticker image data.
 	webpData, err := h.ffmpeg.GenerateBratSticker(text)
 	if err != nil {
 		log.Printf("[brat] failed to generate: %v", err)
-		utils.ReplyTextDirect(client, evt, "❌ Gagal membuat sticker brat. Pastikan ImageMagick (magick/convert) terinstal.")
+		utils.ReplyTextDirect(client, evt, "Gagal membuat sticker brat. Pastikan ImageMagick (magick/convert) terinstal.")
 		return
 	}
 
@@ -270,6 +270,6 @@ func (h *MediaHandler) HandleBrat(client *whatsmeow.Client, evt *events.Message,
 	// Send sticker.
 	if err := utils.ReplySticker(client, evt, webpData, false); err != nil {
 		log.Printf("[brat] failed to send sticker: %v", err)
-		utils.ReplyTextDirect(client, evt, "❌ Gagal mengirim sticker brat.")
+		utils.ReplyTextDirect(client, evt, "Gagal mengirim sticker brat.")
 	}
 }

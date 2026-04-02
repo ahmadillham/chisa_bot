@@ -41,15 +41,14 @@ const (
 	MaxWarningsBeforeKick = 3
 )
 
-// FFmpeg font path for text stickers.
 const (
-	MemeFontPath = "/usr/share/fonts/julietaula-montserrat-fonts/Montserrat-Black.otf"
+	MemeFontPath = "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf"
 )
 
 // Rate limit messages.
 const (
-	MsgRateLimitUser = "⏳ Terlalu cepat, tunggu beberapa detik."
-	MsgRateLimitChat = "⏳ Terlalu banyak perintah di chat ini, coba lagi nanti."
+	MsgRateLimitUser = "Terlalu cepat, tunggu beberapa detik."
+	MsgRateLimitChat = "Terlalu banyak perintah di chat ini, coba lagi nanti."
 )
 
 // ValidateURL checks that a URL is safe to pass to external tools.
