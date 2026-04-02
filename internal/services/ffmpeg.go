@@ -33,7 +33,7 @@ func (f *FFmpegService) ImageToWebP(inputData []byte) ([]byte, error) {
 
 	cmd := exec.Command("ffmpeg",
 		"-i", inputPath,
-		"-vf", "scale='if(gt(iw,ih),510,-1)':'if(gt(iw,ih),-1,510)',format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000",
+		"-vf", "scale='if(gt(iw,ih),510,-2)':'if(gt(iw,ih),-2,510)',format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000",
 		"-c:v", "libwebp",
 		"-preset", "default",
 		"-loop", "0",
@@ -72,7 +72,7 @@ func (f *FFmpegService) VideoToWebP(inputData []byte, ext string) ([]byte, error
 	cmd := exec.Command("ffmpeg",
 		"-i", inputPath,
 		"-t", "8",
-		"-vf", "scale='if(gt(iw,ih),510,-1)':'if(gt(iw,ih),-1,510)',fps=15,format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000",
+		"-vf", "scale='if(gt(iw,ih),510,-2)':'if(gt(iw,ih),-2,510)',fps=15,format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000",
 		"-c:v", "libwebp",
 		"-preset", "default",
 		"-loop", "0",
@@ -164,7 +164,7 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string) ([]byte, er
 	// Ensure 512x512 bounded container with 1px transparent padding to force a valid VP8X 
 	// alpha chunk, preventing "corrupt sticker" errors on WhatsApp Mobile, then draw the text.
 	drawFilter := fmt.Sprintf(
-		"scale='if(gt(iw,ih),510,-1)':'if(gt(iw,ih),-1,510)',format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000,drawtext=fontfile=%s:text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=4:x=(w-text_w)/2:y=h-text_h-20:line_spacing=5:text_align=C",
+		"scale='if(gt(iw,ih),510,-2)':'if(gt(iw,ih),-2,510)',format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000,drawtext=fontfile=%s:text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=4:x=(w-text_w)/2:y=h-text_h-20:line_spacing=5:text_align=C",
 		"/usr/share/fonts/TTF/DejaVuSans-Bold.ttf", safeText,
 	)
 
