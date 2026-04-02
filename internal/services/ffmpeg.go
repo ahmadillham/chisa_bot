@@ -6,8 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"chisa_bot/internal/config"
 )
 
 // FFmpegService provides methods to convert media using ffmpeg.
