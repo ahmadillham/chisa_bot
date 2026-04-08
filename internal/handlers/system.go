@@ -184,7 +184,7 @@ func (h *SystemHandler) HandleRecover(client *whatsmeow.Client, evt *events.Mess
 			utils.ReplyTextDirect(client, evt, "Pesan kosong atau format tidak didukung.")
 			return
 		}
-		utils.ReplyText(client, evt, "[Pesan yang Ditarik/Berlalu]:\n\n"+text)
+		utils.ReplyText(client, evt, text)
 		return
 	}
 
@@ -198,17 +198,9 @@ func (h *SystemHandler) HandleRecover(client *whatsmeow.Client, evt *events.Mess
 	nestedMsg = utils.UnwrapViewOnce(nestedMsg)
 
 	if img := nestedMsg.GetImageMessage(); img != nil {
-		caption := img.GetCaption()
-		if caption != "" {
-			caption = "[Pesan yang Ditarik]:\n\n" + caption
-		}
-		err = utils.ReplyImage(client, evt, data, img.GetMimetype(), caption)
+		err = utils.ReplyImage(client, evt, data, img.GetMimetype(), img.GetCaption())
 	} else if vid := nestedMsg.GetVideoMessage(); vid != nil {
-		caption := vid.GetCaption()
-		if caption != "" {
-			caption = "[Pesan yang Ditarik]:\n\n" + caption
-		}
-		err = utils.ReplyVideo(client, evt, data, vid.GetMimetype(), caption)
+		err = utils.ReplyVideo(client, evt, data, vid.GetMimetype(), vid.GetCaption())
 	} else if stk := nestedMsg.GetStickerMessage(); stk != nil {
 		err = utils.ReplySticker(client, evt, data, stk.GetIsAnimated())
 	} else if aud := nestedMsg.GetAudioMessage(); aud != nil {

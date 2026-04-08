@@ -156,7 +156,9 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string) ([]byte, er
 	}
 
 	var bottomText, topText string
-	parts := strings.Split(text, "|")
+	// Support both comma and pipe as separators
+	normalizedText := strings.ReplaceAll(text, ",", "|")
+	parts := strings.Split(normalizedText, "|")
 	
 	if len(parts) > 1 {
 		topText = strings.TrimSpace(parts[0])
