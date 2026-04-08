@@ -10,6 +10,7 @@ import (
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types/events"
 
+	"chisa_bot/internal/services"
 	"chisa_bot/pkg/utils"
 )
 
@@ -153,7 +154,7 @@ func formatBytes(bytes uint64) string {
 func (h *SystemHandler) HandleRecover(client *whatsmeow.Client, evt *events.Message) {
 	var bStanzaId string
 	if ext := evt.Message.GetExtendedTextMessage(); ext != nil && ext.GetContextInfo() != nil {
-		bStanzaId = ext.GetContextInfo().GetStanzaId()
+		bStanzaId = ext.GetContextInfo().GetStanzaID()
 	}
 
 	if bStanzaId == "" {
