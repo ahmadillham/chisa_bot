@@ -27,5 +27,5 @@ const (
 
 • .read _(Bongkar chat terhapus dari reply)_
 • .stat _(Cek Server Bot & Uptime)_
-• .menu _(Menampilkan pesan ini)_
+• .menu _(Menampilkan pesan ini)_`
 )
