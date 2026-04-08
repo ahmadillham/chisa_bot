@@ -155,18 +155,25 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string) ([]byte, er
 		return nil, fmt.Errorf("failed to write input: %w", err)
 	}
 
-	// Wrap text so it doesn't overflow the 512px sticker width (approx 13 chars max at fontsize 72)
-	wrappedText := wrapText(text, 13)
+	var bottomText, topText string
+	parts := strings.Split(text, "|")
+	bottomText = strings.TrimSpace(parts[0])
+	if len(parts) > 1 {
+		topText = strings.TrimSpace(parts[1])
+	}
 
-	// Escape special characters for FFmpeg drawtext.
-	safeText := escapeFfmpegText(wrappedText)
+	drawFilter := "scale='if(gt(iw,ih),510,-2)':'if(gt(iw,ih),-2,510)',format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000"
+	fontPath := "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf"
 
-	// Ensure 512x512 bounded container with 1px transparent padding to force a valid VP8X 
-	// alpha chunk, preventing "corrupt sticker" errors on WhatsApp Mobile, then draw the text.
-	drawFilter := fmt.Sprintf(
-		"scale='if(gt(iw,ih),510,-2)':'if(gt(iw,ih),-2,510)',format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000,drawtext=fontfile=%s:text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=4:x=(w-text_w)/2:y=h-text_h-20:line_spacing=5:text_align=C",
-		"/usr/share/fonts/TTF/DejaVuSans-Bold.ttf", safeText,
-	)
+	if topText != "" {
+		safeTop := escapeFfmpegText(wrapText(topText, 13))
+		drawFilter += fmt.Sprintf(",drawtext=fontfile=%s:text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=4:x=(w-text_w)/2:y=20:line_spacing=5:text_align=C", fontPath, safeTop)
+	}
+
+	if bottomText != "" {
+		safeBottom := escapeFfmpegText(wrapText(bottomText, 13))
+		drawFilter += fmt.Sprintf(",drawtext=fontfile=%s:text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=4:x=(w-text_w)/2:y=h-text_h-20:line_spacing=5:text_align=C", fontPath, safeBottom)
+	}
 
 	cmd := exec.Command("ffmpeg",
 		"-i", inputPath,

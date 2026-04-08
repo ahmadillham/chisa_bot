@@ -146,3 +146,59 @@ func formatBytes(bytes uint64) string {
 	}
 	return fmt.Sprintf("%.2f MB", float64(bytes)/float64(MB))
 }
+
+// HandleRecover extracts and forwards a deeply nested quoted message (i.e. to retrieve deleted messages).
+func (h *SystemHandler) HandleRecover(client *whatsmeow.Client, evt *events.Message) {
+	nestedMsg := utils.GetNestedQuotedMessage(evt)
+	if nestedMsg == nil {
+		utils.ReplyTextDirect(client, evt, "Pesan tidak mengandung kutipan bertingkat (Reply pada pesan yang sedang me-reply pesan lain).")
+		return
+	}
+
+	// Case 1: Pure text
+	if !utils.IsMediaMessage(nestedMsg) {
+		// Wrap it in events.Message to reuse GetTextFromMessage
+		fakeEvt := &events.Message{Message: nestedMsg}
+		text := utils.GetTextFromMessage(fakeEvt)
+		if text == "" {
+			utils.ReplyTextDirect(client, evt, "Pesan kosong atau format tidak didukung.")
+			return
+		}
+		utils.ReplyText(client, evt, "[Pesan yang Ditarik/Berlalu]:\n\n"+text)
+		return
+	}
+
+	// Case 2: Media
+	data, err := utils.DownloadMediaFromMessage(client, nestedMsg)
+	if err != nil {
+		utils.ReplyTextDirect(client, evt, "Gagal mengunduh media dari pesan tersebut (mungkin file asli sudah kedaluwarsa dari server cache WhatsApp).")
+		return
+	}
+
+	nestedMsg = utils.UnwrapViewOnce(nestedMsg)
+
+	if img := nestedMsg.GetImageMessage(); img != nil {
+		caption := img.GetCaption()
+		if caption != "" {
+			caption = "[Pesan yang Ditarik]:\n\n" + caption
+		}
+		err = utils.ReplyImage(client, evt, data, img.GetMimetype(), caption)
+	} else if vid := nestedMsg.GetVideoMessage(); vid != nil {
+		caption := vid.GetCaption()
+		if caption != "" {
+			caption = "[Pesan yang Ditarik]:\n\n" + caption
+		}
+		err = utils.ReplyVideo(client, evt, data, vid.GetMimetype(), caption)
+	} else if stk := nestedMsg.GetStickerMessage(); stk != nil {
+		err = utils.ReplySticker(client, evt, data, stk.GetIsAnimated())
+	} else if aud := nestedMsg.GetAudioMessage(); aud != nil {
+		err = utils.ReplyAudio(client, evt, data, aud.GetMimetype())
+	} else if doc := nestedMsg.GetDocumentMessage(); doc != nil {
+		utils.ReplyTextDirect(client, evt, "Fitur pengambilan dokumen belum didukung secara utuh.")
+		return
+	}
+
+	if err != nil {
+		utils.ReplyTextDirect(client, evt, "Gagal memforward ulang media.")
+	}
+}

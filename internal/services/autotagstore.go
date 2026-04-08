@@ -1,67 +1,85 @@
 package services
 
 import (
+	"database/sql"
 	"encoding/json"
+	"log"
 	"os"
-	"sync"
 )
 
-// AutoTagStore manages persistent auto-tag preferences for groups.
+// AutoTagStore manages persistent auto-tag preferences for groups using SQLite.
 type AutoTagStore struct {
-	// Map: GroupJID -> IsDisabled (true means disabled)
-	DisabledGroups map[string]bool
-	mu             sync.RWMutex
-	file           string
+	db *sql.DB
 }
 
-// NewAutoTagStore creates a new AutoTagStore and loads data from file.
-func NewAutoTagStore(file string) *AutoTagStore {
-	store := &AutoTagStore{
-		DisabledGroups: make(map[string]bool),
-		file:           file,
+// NewAutoTagStore creates a new AutoTagStore and ensures the table exists.
+func NewAutoTagStore(db *sql.DB) *AutoTagStore {
+	store := &AutoTagStore{db: db}
+	
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS autotag_prefs (
+			group_jid TEXT PRIMARY KEY,
+			disabled BOOLEAN
+		)
+	`)
+	if err != nil {
+		log.Fatalf("Failed to create autotag_prefs table: %v", err)
 	}
-	store.load()
+
+	store.migrateLegacyJSON()
 	return store
 }
 
 // IsDisabled checks if auto-tag is disabled for a specific group.
 // Returns true if disabled, false if enabled (default).
 func (s *AutoTagStore) IsDisabled(groupJID string) bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.DisabledGroups[groupJID]
+	var disabled bool
+	err := s.db.QueryRow(`SELECT disabled FROM autotag_prefs WHERE group_jid = ?`, groupJID).Scan(&disabled)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("[autotagstore] error getting pref: %v", err)
+	}
+	// If no rows, default is false (enabled)
+	return disabled
 }
 
 // SetDisabled updates the auto-tag preference for a specific group.
 func (s *AutoTagStore) SetDisabled(groupJID string, disabled bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if disabled {
-		s.DisabledGroups[groupJID] = true
+		_, err := s.db.Exec(`
+			INSERT INTO autotag_prefs (group_jid, disabled) 
+			VALUES (?, 1)
+			ON CONFLICT(group_jid) DO UPDATE SET disabled = 1
+		`, groupJID)
+		if err != nil {
+			log.Printf("[autotagstore] error setting pref: %v", err)
+		}
 	} else {
-		delete(s.DisabledGroups, groupJID)
+		_, err := s.db.Exec(`DELETE FROM autotag_prefs WHERE group_jid = ?`, groupJID)
+		if err != nil {
+			log.Printf("[autotagstore] error removing pref: %v", err)
+		}
 	}
-	s.save()
 }
 
-func (s *AutoTagStore) load() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	data, err := os.ReadFile(s.file)
+// migrateLegacyJSON attempts to read autotag.json and insert them to DB.
+func (s *AutoTagStore) migrateLegacyJSON() {
+	legacyFile := "autotag.json"
+	data, err := os.ReadFile(legacyFile)
 	if err != nil {
 		return
 	}
 
-	_ = json.Unmarshal(data, &s.DisabledGroups)
-}
-
-func (s *AutoTagStore) save() {
-	// Must be called with lock held
-	data, err := json.MarshalIndent(s.DisabledGroups, "", "  ")
-	if err != nil {
-		return
+	log.Println("[autotagstore] Running legacy JSON migration...")
+	var disabledGroups map[string]bool
+	if err := json.Unmarshal(data, &disabledGroups); err == nil {
+		for groupJID, disabled := range disabledGroups {
+			if disabled {
+				_, _ = s.db.Exec(`
+					INSERT OR IGNORE INTO autotag_prefs (group_jid, disabled) 
+					VALUES (?, 1)
+				`, groupJID)
+			}
+		}
 	}
-	_ = os.WriteFile(s.file, data, 0644)
+	_ = os.Rename(legacyFile, legacyFile+".bak")
 }

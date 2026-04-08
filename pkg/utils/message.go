@@ -312,3 +312,46 @@ func GetTargetJID(evt *events.Message) (types.JID, bool) {
 	return targetJID, found
 }
 
+// GetNestedQuotedMessage returns the quoted message inside a quoted message (grandparent message).
+func GetNestedQuotedMessage(evt *events.Message) *waProto.Message {
+	firstQuote := GetQuotedMessage(evt)
+	if firstQuote == nil {
+		return nil
+	}
+	
+	// Unwrap view once just in case
+	firstQuote = UnwrapViewOnce(firstQuote)
+	
+	if ext := firstQuote.GetExtendedTextMessage(); ext != nil {
+		if ctx := ext.GetContextInfo(); ctx != nil {
+			return ctx.GetQuotedMessage()
+		}
+	}
+	if img := firstQuote.GetImageMessage(); img != nil {
+		if ctx := img.GetContextInfo(); ctx != nil {
+			return ctx.GetQuotedMessage()
+		}
+	}
+	if vid := firstQuote.GetVideoMessage(); vid != nil {
+		if ctx := vid.GetContextInfo(); ctx != nil {
+			return ctx.GetQuotedMessage()
+		}
+	}
+	if doc := firstQuote.GetDocumentMessage(); doc != nil {
+		if ctx := doc.GetContextInfo(); ctx != nil {
+			return ctx.GetQuotedMessage()
+		}
+	}
+	if aud := firstQuote.GetAudioMessage(); aud != nil {
+		if ctx := aud.GetContextInfo(); ctx != nil {
+			return ctx.GetQuotedMessage()
+		}
+	}
+	if stk := firstQuote.GetStickerMessage(); stk != nil {
+		if ctx := stk.GetContextInfo(); ctx != nil {
+			return ctx.GetQuotedMessage()
+		}
+	}
+	
+	return nil
+}

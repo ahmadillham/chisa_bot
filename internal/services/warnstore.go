@@ -1,91 +1,100 @@
 package services
 
 import (
+	"database/sql"
 	"encoding/json"
+	"log"
 	"os"
-	"sync"
 )
 
-// WarnStore manages persistent warning counts for group members.
+// WarnStore manages persistent warning counts for group members using SQLite.
 type WarnStore struct {
-	// Map: GroupJID -> UserJID -> Count
-	Counts map[string]map[string]int
-	mu     sync.RWMutex
-	file   string
+	db *sql.DB
 }
 
-// NewWarnStore creates a new WarnStore and loads data from file.
-func NewWarnStore(file string) *WarnStore {
-	store := &WarnStore{
-		Counts: make(map[string]map[string]int),
-		file:   file,
+// NewWarnStore creates a new WarnStore and ensures the table exists.
+func NewWarnStore(db *sql.DB) *WarnStore {
+	store := &WarnStore{db: db}
+	
+	// Create table
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS warnings (
+			group_jid TEXT,
+			user_jid TEXT,
+			count INTEGER,
+			PRIMARY KEY (group_jid, user_jid)
+		)
+	`)
+	if err != nil {
+		log.Fatalf("Failed to create warnings table: %v", err)
 	}
-	store.load()
+
+	store.migrateLegacyJSON()
 	return store
 }
 
 // AddWarning increments the warning count for a user in a group.
 // Returns the new count.
 func (s *WarnStore) AddWarning(groupJID, userJID string) int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.Counts[groupJID] == nil {
-		s.Counts[groupJID] = make(map[string]int)
+	var count int
+	// Insert or increment
+	_, err := s.db.Exec(`
+		INSERT INTO warnings (group_jid, user_jid, count) 
+		VALUES (?, ?, 1)
+		ON CONFLICT(group_jid, user_jid) 
+		DO UPDATE SET count = warnings.count + 1
+	`, groupJID, userJID)
+	if err != nil {
+		log.Printf("[warnstore] error adding warning: %v", err)
+		return s.GetWarning(groupJID, userJID) // return current on error
 	}
-	s.Counts[groupJID][userJID]++
-	count := s.Counts[groupJID][userJID]
-	s.save()
+	
+	// Fetch new count
+	err = s.db.QueryRow(`SELECT count FROM warnings WHERE group_jid = ? AND user_jid = ?`, groupJID, userJID).Scan(&count)
+	if err != nil {
+		log.Printf("[warnstore] error getting new count: %v", err)
+	}
 	return count
 }
 
 // GetWarning returns the current warning count for a user.
 func (s *WarnStore) GetWarning(groupJID, userJID string) int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if group, ok := s.Counts[groupJID]; ok {
-		return group[userJID]
+	var count int
+	err := s.db.QueryRow(`SELECT count FROM warnings WHERE group_jid = ? AND user_jid = ?`, groupJID, userJID).Scan(&count)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("[warnstore] error getting warning: %v", err)
 	}
-	return 0
+	return count
 }
 
 // ResetWarning resets the warning count for a user to 0.
 func (s *WarnStore) ResetWarning(groupJID, userJID string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.Counts[groupJID] != nil {
-		delete(s.Counts[groupJID], userJID)
-		if len(s.Counts[groupJID]) == 0 {
-			delete(s.Counts, groupJID)
-		}
-		s.save()
+	_, err := s.db.Exec(`DELETE FROM warnings WHERE group_jid = ? AND user_jid = ?`, groupJID, userJID)
+	if err != nil {
+		log.Printf("[warnstore] error resetting warning: %v", err)
 	}
 }
 
-func (s *WarnStore) load() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	data, err := os.ReadFile(s.file)
+// migrateLegacyJSON attempts to read warnings.json and insert them to DB if it exists.
+func (s *WarnStore) migrateLegacyJSON() {
+	legacyFile := "warnings.json"
+	data, err := os.ReadFile(legacyFile)
 	if err != nil {
-		if !os.IsNotExist(err) {
-			// Log error via standard log if possible, but package assumes stdlib log usage elsewhere.
+		return // File doesn't exist or permissions error, ignore
+	}
+
+	log.Println("[warnstore] Running legacy JSON migration...")
+	var counts map[string]map[string]int
+	if err := json.Unmarshal(data, &counts); err == nil {
+		for groupJID, users := range counts {
+			for userJID, count := range users {
+				_, _ = s.db.Exec(`
+					INSERT OR IGNORE INTO warnings (group_jid, user_jid, count) 
+					VALUES (?, ?, ?)
+				`, groupJID, userJID, count)
+			}
 		}
-		return
 	}
-
-	if err := json.Unmarshal(data, &s.Counts); err != nil {
-		// handle error
-	}
-}
-
-func (s *WarnStore) save() {
-	// Must be called with lock held
-	data, err := json.MarshalIndent(s.Counts, "", "  ")
-	if err != nil {
-		return
-	}
-	_ = os.WriteFile(s.file, data, 0644)
+	// Rename file to prevent double migration
+	_ = os.Rename(legacyFile, legacyFile+".bak")
 }

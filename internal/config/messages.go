@@ -7,21 +7,26 @@ const (
 	MsgMenu           = `*Daftar Perintah*
 Prefix: . ! /
 
-• .sticker (.s)
+• .s (Sticker)
+• .ts <teks> (Teks Sticker)
 • .toimg (Sticker->Img / ViewOnce)
 • .brat <teks>
 • .dl <link>
 • .mp3 <link>
 • .tagall
+• .autotag
 • .warn <tag/reply>
 • .resetwarn <tag/reply>
 • .kick <member>
+
 • .bansticker (reply sticker)
 • .unbansticker <alias>
 • .liststicker
+• .read (Baca pesan terhapus dari reply)
 • .banuser <tag/reply>
 • .unbanuser <tag/reply>
 • .listuser
-• .stats
+
+• .stat
 • .menu`
 )

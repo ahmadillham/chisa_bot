@@ -16,10 +16,7 @@ const (
 
 // Persistence file paths.
 const (
-	WarnStoreFile              = "warnings.json"
-	AutoTagStoreFile           = "autotag.json"
-	BannedStickerStoreFile     = "banned_stickers.json"
-	BannedStickerUserStoreFile = "banned_sticker_users.json"
+	BotDatabaseFile = "bot.db"
 )
 
 // Rate limiting defaults.

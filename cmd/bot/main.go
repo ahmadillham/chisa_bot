@@ -9,6 +9,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"database/sql"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/mdp/qrterminal/v3"
@@ -42,11 +43,16 @@ func main() {
 	clientLog := waLog.Stdout("Client", "WARN", true)
 	client := whatsmeow.NewClient(deviceStore, clientLog)
 
-	// Initialize handlers using config values for file paths.
-	warnStore := services.NewWarnStore(config.WarnStoreFile)
-	autoTagStore := services.NewAutoTagStore(config.AutoTagStoreFile)
-	bannedStickerStore := services.NewBannedStickerStore(config.BannedStickerStoreFile, nil)
-	bannedStickerUserStore := services.NewBannedStickerUserStore(config.BannedStickerUserStoreFile)
+	botDB, err := sql.Open("sqlite3", "file:"+config.BotDatabaseFile+"?_journal_mode=WAL&_foreign_keys=on")
+	if err != nil {
+		log.Fatalf("Failed to initialize bot DB: %v", err)
+	}
+
+	// Initialize handlers using the bot SQLite DB.
+	warnStore := services.NewWarnStore(botDB)
+	autoTagStore := services.NewAutoTagStore(botDB)
+	bannedStickerStore := services.NewBannedStickerStore(botDB, nil)
+	bannedStickerUserStore := services.NewBannedStickerUserStore(botDB)
 	mediaHandler := handlers.NewMediaHandler()
 	dlHandler := handlers.NewDownloaderHandler()
 	groupHandler := handlers.NewGroupHandler(warnStore, autoTagStore)
@@ -94,6 +100,7 @@ func main() {
 
 	registry.Register("menu", wrap(menuHandler.HandleMenu))
 	registry.Register("stat", wrap(sysHandler.HandleStats))
+	registry.Register("read", wrap(sysHandler.HandleRecover))
 
 	// Register the main event handler.
 	client.AddEventHandler(func(rawEvt interface{}) {

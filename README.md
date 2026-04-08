@@ -8,11 +8,13 @@ A modular, high-performance WhatsApp bot built with Go and [whatsmeow](https://g
 | -------------------- | -------------------------------------------------- |
 | **Sticker**          | `.s` — Image/Video/GIF → WebP sticker              |
 | **Text Sticker**     | `.ts <text>` — Add meme text to sticker/image      |
+| **Brat Sticker**     | `.brat <text>` — Create a brat-style text sticker  |
 | **Sticker to Image** | `.toimg` — WebP sticker → PNG / View Once retrieval |
 | **Video Downloader** | `.dl <url>` — Download TikTok/IG/YouTube Video     |
 | **Audio Downloader** | `.mp3 <url>` — Download YouTube Audio              |
 | **Group Admin**      | `.tagall`, `.warn`, `.resetwarn`, `.kick`, `.autotag` |
 | **Anti-Sticker**     | `.bansticker`, `.unbansticker`, `.liststicker`     |
+| **User Ban**         | `.banuser`, `.unbanuser`, `.listuser`              |
 | **Welcome/Goodbye**  | Auto-message on group join/leave                   |
 | **Auto-Tag**         | Auto-tag everyone on TikTok link detection         |
 | **System**           | `.menu`, `.stat`                                   |
@@ -22,24 +24,25 @@ A modular, high-performance WhatsApp bot built with Go and [whatsmeow](https://g
 ## Prerequisites
 
 1. **Go 1.24+** — https://go.dev/dl/
-2. **FFmpeg** — Required for sticker conversion
-3. **GCC** — Required for SQLite (CGO)
-4. **yt-dlp** — Required for media downloading
+2. **FFmpeg** — Required for base sticker conversion
+3. **ImageMagick** — Required for `.brat` text sticker generation
+4. **GCC** — Required for SQLite (CGO)
+5. **yt-dlp** — Required for media downloading
 
-### Install FFmpeg
+### Install FFmpeg & ImageMagick
 
 ```bash
 # Ubuntu/Debian
-sudo apt update && sudo apt install -y ffmpeg
+sudo apt update && sudo apt install -y ffmpeg imagemagick
 
 # Arch
-sudo pacman -S ffmpeg
+sudo pacman -S ffmpeg imagemagick
 
 # macOS
-brew install ffmpeg
+brew install ffmpeg imagemagick
 ```
 
-Verify: `ffmpeg -version`
+Verify: `ffmpeg -version` and `magick -version` (or `convert -version`)
 
 ### Install GCC (if not present)
 
@@ -95,18 +98,20 @@ chisa_bot/
 │   │   └── messages.go          # Bot message templates
 │   ├── router/router.go         # Multi-prefix command parser
 │   ├── handlers/
-│   │   ├── antisticker.go       # .bansticker, .unbansticker, .liststicker
+│   │   ├── antisticker.go       # .bansticker, .banuser, etc.
 │   │   ├── downloader.go        # .dl, .mp3
 │   │   ├── group.go             # Welcome/Goodbye, .tagall, .warn, .kick
-│   │   ├── media.go             # .s, .toimg, .ts
+│   │   ├── media.go             # .s, .toimg, .ts, .brat
 │   │   ├── menu.go              # .menu
 │   │   ├── registry.go          # Command routing mapping
 │   │   └── system.go            # .stat
 │   └── services/
 │       ├── autotagstore.go      # Auto-tag preference persistence
 │       ├── bannedstickers.go    # Banned sticker hash management
+│       ├── bannedstickerusers.go# Banned sticker user management
+│       ├── cleanup.go           # Temp files auto-cleaner
 │       ├── downloader.go        # yt-dlp wrapper with URL validation
-│       ├── ffmpeg.go            # FFmpeg conversion wrapper
+│       ├── ffmpeg.go            # FFmpeg & ImageMagick wrapper
 │       └── warnstore.go         # Warning count persistence
 ├── pkg/
 │   ├── ratelimit/ratelimit.go   # Per-user/per-chat rate limiter
