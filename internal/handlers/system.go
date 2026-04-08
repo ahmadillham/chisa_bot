@@ -16,12 +16,14 @@ import (
 // SystemHandler handles system information commands.
 type SystemHandler struct {
 	startTime time.Time
+	msgCache  *services.MessageCacheStore
 }
 
 // NewSystemHandler creates a new SystemHandler.
-func NewSystemHandler() *SystemHandler {
+func NewSystemHandler(msgCache *services.MessageCacheStore) *SystemHandler {
 	return &SystemHandler{
 		startTime: time.Now(),
+		msgCache:  msgCache,
 	}
 }
 
@@ -149,9 +151,26 @@ func formatBytes(bytes uint64) string {
 
 // HandleRecover extracts and forwards a deeply nested quoted message (i.e. to retrieve deleted messages).
 func (h *SystemHandler) HandleRecover(client *whatsmeow.Client, evt *events.Message) {
-	nestedMsg := utils.GetNestedQuotedMessage(evt)
+	var bStanzaId string
+	if ext := evt.Message.GetExtendedTextMessage(); ext != nil && ext.GetContextInfo() != nil {
+		bStanzaId = ext.GetContextInfo().GetStanzaId()
+	}
+
+	if bStanzaId == "" {
+		utils.ReplyTextDirect(client, evt, "Gagal mendapatkan ID pesan yang di-reply.")
+		return
+	}
+
+	fullB, err := h.msgCache.Get(bStanzaId)
+	if err != nil {
+		utils.ReplyTextDirect(client, evt, "Pesan tidak ada di riwayat bot (Mungkin bot sedang mati saat pesan tersebut dikirim, atau sudah kadaluwarsa >24 jam).")
+		return
+	}
+
+	// Extract the grandparent quoted message (the one that got deleted) from the unstripped fullB
+	nestedMsg := utils.GetQuotedMessage(&events.Message{Message: fullB})
 	if nestedMsg == nil {
-		utils.ReplyTextDirect(client, evt, "Pesan tidak mengandung kutipan bertingkat (Reply pada pesan yang sedang me-reply pesan lain).")
+		utils.ReplyTextDirect(client, evt, "Pesan yang di-reply ternyata tidak membalas (reply) pesan orang lain sama sekali.")
 		return
 	}
 

@@ -157,9 +157,12 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string) ([]byte, er
 
 	var bottomText, topText string
 	parts := strings.Split(text, "|")
-	bottomText = strings.TrimSpace(parts[0])
+	
 	if len(parts) > 1 {
-		topText = strings.TrimSpace(parts[1])
+		topText = strings.TrimSpace(parts[0])
+		bottomText = strings.TrimSpace(parts[1])
+	} else {
+		bottomText = strings.TrimSpace(parts[0])
 	}
 
 	drawFilter := "scale='if(gt(iw,ih),510,-2)':'if(gt(iw,ih),-2,510)',format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000"
