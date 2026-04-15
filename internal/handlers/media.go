@@ -261,7 +261,11 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 	webpData, err := h.ffmpeg.AddTextToWebP(data, text, ext, isAnimated)
 	if err != nil {
 		log.Printf("[ts] failed to add text: %v", err)
-		utils.ReplyTextDirect(client, evt, "Gagal menambahkan teks ke sticker.")
+		errMsg := "Gagal menambahkan teks ke sticker."
+		if strings.Contains(err.Error(), "ffmpeg") {
+			errMsg += " Pastikan FFmpeg terinstal di server."
+		}
+		utils.ReplyTextDirect(client, evt, errMsg)
 		return
 	}
 

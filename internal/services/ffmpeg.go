@@ -156,7 +156,7 @@ func wrapText(text string, maxChars int) string {
 }
 
 // AddTextToWebP overlays meme-style bottom text onto a WebP sticker.
-// It supports both static and animated inputs (GIF/Video).
+// It supports both static and animated inputs (GIF/Video/WebP).
 func (f *FFmpegService) AddTextToWebP(inputData []byte, text string, ext string, isAnimated bool) ([]byte, error) {
 	tmpDir, err := os.MkdirTemp("", "chisabot-ts-*")
 	if err != nil {
@@ -186,31 +186,30 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string, ext string,
 		bottomText = strings.TrimSpace(parts[0])
 	}
 
-	// Base scaling and padding for sticker format
+	// Base scaling and padding for sticker format. We use format=bgra to ensure alpha channel support.
 	drawFilter := "scale='if(gt(iw,ih),510,-2)':'if(gt(iw,ih),-2,510)',format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000"
 
-	// If animated, limit FPS to keep file size reasonable
+	// If animated, limit FPS and add fps filter early
 	if isAnimated {
 		drawFilter += ",fps=15"
 	}
 
-	fontPath := f.fontPath
+	// Double-escape backslashes for FFmpeg's drawtext fontfile path
+	fontPath := strings.ReplaceAll(f.fontPath, `\`, `\\`)
+	fontPath = strings.ReplaceAll(fontPath, `:`, `\:`)
 
 	if topText != "" {
 		safeTop := escapeFfmpegText(wrapText(topText, 13))
-		drawFilter += fmt.Sprintf(",drawtext=fontfile=%s:text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=6:x=(w-text_w)/2:y=20:line_spacing=5:text_align=C", fontPath, safeTop)
+		drawFilter += fmt.Sprintf(",drawtext=fontfile='%s':text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=6:x=(w-text_w)/2:y=20:line_spacing=5:text_align=C", fontPath, safeTop)
 	}
 
 	if bottomText != "" {
 		safeBottom := escapeFfmpegText(wrapText(bottomText, 13))
-		drawFilter += fmt.Sprintf(",drawtext=fontfile=%s:text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=6:x=(w-text_w)/2:y=h-text_h-20:line_spacing=5:text_align=C", fontPath, safeBottom)
+		drawFilter += fmt.Sprintf(",drawtext=fontfile='%s':text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=6:x=(w-text_w)/2:y=h-text_h-20:line_spacing=5:text_align=C", fontPath, safeBottom)
 	}
 
-	ffmpegArgs := []string{
-		"-i", inputPath,
-	}
+	ffmpegArgs := []string{"-i", inputPath}
 
-	// Limit duration for animations
 	if isAnimated {
 		ffmpegArgs = append(ffmpegArgs, "-t", "8")
 	}
@@ -221,7 +220,6 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string, ext string,
 		"-preset", "default",
 	)
 
-	// Adjust quality for animations to stay under 1MB limit
 	if isAnimated {
 		ffmpegArgs = append(ffmpegArgs, "-quality", "50", "-compression_level", "6")
 	} else {
@@ -237,6 +235,7 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string, ext string,
 	cmd := exec.Command("ffmpeg", ffmpegArgs...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		log.Printf("[FFmpeg] Filter chain: %s", drawFilter)
 		return nil, fmt.Errorf("ffmpeg ts failed: %w\nOutput: %s", err, string(output))
 	}
 
