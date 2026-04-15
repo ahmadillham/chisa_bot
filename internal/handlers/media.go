@@ -221,11 +221,13 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 		targetMsg = quoted
 	}
 
-	// Accept sticker or image.
-	isSticker := targetMsg.GetStickerMessage() != nil
-	isImage := targetMsg.GetImageMessage() != nil
-	if !isSticker && !isImage {
-		utils.ReplyTextDirect(client, evt, "Kirim atau reply gambar/sticker dengan caption .ts <teks>")
+	// Accept sticker, image, or video (GIF).
+	stk := targetMsg.GetStickerMessage()
+	img := targetMsg.GetImageMessage()
+	vid := targetMsg.GetVideoMessage()
+
+	if stk == nil && img == nil && vid == nil {
+		utils.ReplyTextDirect(client, evt, "Kirim atau reply gambar/video/sticker dengan caption .ts <teks>")
 		return
 	}
 
@@ -237,21 +239,26 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 		return
 	}
 
-	// If it's an image (not WebP), convert to WebP first.
-	var webpInput []byte
-	if isImage {
-		webpInput, err = h.ffmpeg.ImageToWebP(data)
-		if err != nil {
-			log.Printf("[ts] failed to convert image to webp: %v", err)
-			utils.ReplyTextDirect(client, evt, "Gagal konversi gambar ke WebP.")
-			return
+	// Identify input properties.
+	var ext string
+	isAnimated := false
+
+	if stk != nil {
+		ext = ".webp"
+		isAnimated = stk.GetIsAnimated()
+	} else if img != nil {
+		ext = ".jpg" // default for images
+		isAnimated = false
+	} else if vid != nil {
+		ext = ".mp4"
+		if vid.GetGifPlayback() {
+			ext = ".gif"
 		}
-	} else {
-		webpInput = data
+		isAnimated = true
 	}
 
 	// Overlay the text.
-	webpData, err := h.ffmpeg.AddTextToWebP(webpInput, text)
+	webpData, err := h.ffmpeg.AddTextToWebP(data, text, ext, isAnimated)
 	if err != nil {
 		log.Printf("[ts] failed to add text: %v", err)
 		utils.ReplyTextDirect(client, evt, "Gagal menambahkan teks ke sticker.")
@@ -262,11 +269,12 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 	webpData, _ = utils.AddStickerExif(webpData, config.StickerPackName, config.StickerAuthorName)
 
 	// Send as sticker.
-	if err := utils.ReplySticker(client, evt, webpData, false); err != nil {
+	if err := utils.ReplySticker(client, evt, webpData, isAnimated); err != nil {
 		log.Printf("[ts] failed to send sticker: %v", err)
 		utils.ReplyTextDirect(client, evt, "Gagal mengirim sticker.")
 	}
 }
+
 
 // HandleBrat creates a 'brat' style sticker from text.
 func (h *MediaHandler) HandleBrat(client *whatsmeow.Client, evt *events.Message, args []string) {
