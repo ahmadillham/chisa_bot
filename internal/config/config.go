@@ -42,6 +42,20 @@ const (
 	MemeFontPath = "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf"
 )
 
+var MemeFontCandidates = []string{
+	"/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+	"/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+	"/usr/share/fonts/TTF/LiberationSans-Bold.ttf",
+	"/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+	"C:\\Windows\\Fonts\\arialbd.ttf",
+}
+
+// Resource limits.
+const (
+	MaxConcurrentMediaTasks = 4
+	MsgQueueLimit           = "Permintaan sedang diproses, mohon tunggu antrean..."
+)
+
 // Rate limit messages.
 const (
 	MsgRateLimitUser = "Terlalu cepat, tunggu beberapa detik."

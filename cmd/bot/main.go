@@ -55,8 +55,10 @@ func main() {
 	bannedStickerUserStore := services.NewBannedStickerUserStore(botDB)
 	msgCache := services.NewMessageCacheStore(botDB)
 
-	mediaHandler := handlers.NewMediaHandler()
-	dlHandler := handlers.NewDownloaderHandler()
+	pool := services.NewWorkerPool(config.MaxConcurrentMediaTasks)
+
+	mediaHandler := handlers.NewMediaHandler(pool)
+	dlHandler := handlers.NewDownloaderHandler(pool)
 	groupHandler := handlers.NewGroupHandler(warnStore, autoTagStore)
 	menuHandler := handlers.NewMenuHandler()
 	sysHandler := handlers.NewSystemHandler(msgCache)

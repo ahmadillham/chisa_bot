@@ -86,6 +86,7 @@ func (s *YtDlpService) DownloadInstagram(sourceURL string) (*MediaResult, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp dir: %w", err)
 	}
+	defer os.RemoveAll(tmpDir)
 
 	// Output template without extension, yt-dlp adds it.
 	outputTemplate := filepath.Join(tmpDir, "media.%(ext)s")
@@ -110,25 +111,21 @@ func (s *YtDlpService) DownloadInstagram(sourceURL string) (*MediaResult, error)
 		if strings.Contains(outputStr, "no video") {
 			// Fallback: Try to scrape og:image
 			if fallbackRes, fbErr := s.scrapeIGImage(sourceURL); fbErr == nil {
-				os.RemoveAll(tmpDir)
 				return fallbackRes, nil
 			}
 		}
-		os.RemoveAll(tmpDir)
 		return nil, fmt.Errorf("ig download failed: %w\nOutput: %s", err, outputStr)
 	}
 
 	// Find the downloaded file
 	files, err := os.ReadDir(tmpDir)
 	if err != nil || len(files) == 0 {
-		os.RemoveAll(tmpDir)
 		return nil, fmt.Errorf("no file downloaded")
 	}
 
 	filename := files[0].Name()
 	filePath := filepath.Join(tmpDir, filename)
 	data, err := os.ReadFile(filePath)
-	os.RemoveAll(tmpDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
@@ -243,6 +240,7 @@ func (s *YtDlpService) downloadGeneric(sourceURL string) (*MediaResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp dir: %w", err)
 	}
+	defer os.RemoveAll(tmpDir)
 
 	outputPath := filepath.Join(tmpDir, "video.mp4")
 	maxSize := fmt.Sprintf("%dM", config.MaxFileSizeMB)
@@ -261,12 +259,10 @@ func (s *YtDlpService) downloadGeneric(sourceURL string) (*MediaResult, error) {
 	cmd := exec.Command(s.bin, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		os.RemoveAll(tmpDir)
 		return nil, fmt.Errorf("download failed: %w\nOutput: %s", err, string(output))
 	}
 
 	data, err := os.ReadFile(outputPath)
-	os.RemoveAll(tmpDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
@@ -291,6 +287,7 @@ func (s *YtDlpService) DownloadAudio(sourceURL string) (*MediaResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp dir: %w", err)
 	}
+	defer os.RemoveAll(tmpDir)
 
 	outputPath := filepath.Join(tmpDir, "audio.mp3")
 	maxSize := fmt.Sprintf("%dM", config.MaxAudioSizeMB)
@@ -308,12 +305,10 @@ func (s *YtDlpService) DownloadAudio(sourceURL string) (*MediaResult, error) {
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		os.RemoveAll(tmpDir)
 		return nil, fmt.Errorf("yt-dlp audio failed: %w\nOutput: %s", err, string(output))
 	}
 
 	data, err := os.ReadFile(outputPath)
-	os.RemoveAll(tmpDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read downloaded file: %w", err)
 	}
@@ -334,6 +329,7 @@ func (s *YtDlpService) DownloadTikTok(sourceURL string) (*MediaResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp dir: %w", err)
 	}
+	defer os.RemoveAll(tmpDir)
 
 	outputPath := filepath.Join(tmpDir, "tiktok.mp4")
 	maxSize := fmt.Sprintf("%dM", config.MaxFileSizeMB)
@@ -350,12 +346,10 @@ func (s *YtDlpService) DownloadTikTok(sourceURL string) (*MediaResult, error) {
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		os.RemoveAll(tmpDir)
 		return nil, fmt.Errorf("yt-dlp tiktok failed: %w\nOutput: %s", err, string(output))
 	}
 
 	data, err := os.ReadFile(outputPath)
-	os.RemoveAll(tmpDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read downloaded file: %w", err)
 	}

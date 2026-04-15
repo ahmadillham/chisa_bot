@@ -6,14 +6,30 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"chisa_bot/internal/config"
 )
 
 // FFmpegService provides methods to convert media using ffmpeg.
-type FFmpegService struct{}
+type FFmpegService struct {
+	fontPath string
+}
 
-// NewFFmpegService creates a new FFmpegService.
+// NewFFmpegService creates a new FFmpegService and auto-discovers a suitable font.
 func NewFFmpegService() *FFmpegService {
-	return &FFmpegService{}
+	f := &FFmpegService{}
+	for _, path := range config.MemeFontCandidates {
+		if _, err := os.Stat(path); err == nil {
+			f.fontPath = path
+			break
+		}
+	}
+	if f.fontPath == "" {
+		// Fallback to the default hardcoded one if all else fails, 
+		// though it will likely fail during execution too.
+		f.fontPath = config.MemeFontPath
+	}
+	return f
 }
 
 // ImageToWebP converts an image (JPEG/PNG) to a static WebP sticker (512x512 max).
@@ -168,16 +184,16 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string) ([]byte, er
 	}
 
 	drawFilter := "scale='if(gt(iw,ih),510,-2)':'if(gt(iw,ih),-2,510)',format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000"
-	fontPath := "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf"
+	fontPath := f.fontPath
 
 	if topText != "" {
 		safeTop := escapeFfmpegText(wrapText(topText, 13))
-		drawFilter += fmt.Sprintf(",drawtext=fontfile=%s:text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=4:x=(w-text_w)/2:y=20:line_spacing=5:text_align=C", fontPath, safeTop)
+		drawFilter += fmt.Sprintf(",drawtext=fontfile=%s:text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=6:x=(w-text_w)/2:y=20:line_spacing=5:text_align=C", fontPath, safeTop)
 	}
 
 	if bottomText != "" {
 		safeBottom := escapeFfmpegText(wrapText(bottomText, 13))
-		drawFilter += fmt.Sprintf(",drawtext=fontfile=%s:text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=4:x=(w-text_w)/2:y=h-text_h-20:line_spacing=5:text_align=C", fontPath, safeBottom)
+		drawFilter += fmt.Sprintf(",drawtext=fontfile=%s:text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=6:x=(w-text_w)/2:y=h-text_h-20:line_spacing=5:text_align=C", fontPath, safeBottom)
 	}
 
 	cmd := exec.Command("ffmpeg",
@@ -231,7 +247,7 @@ func (f *FFmpegService) GenerateBratSticker(text string) ([]byte, error) {
 		"-font", "DejaVu-Sans", // More robust font handling across different Linux bounds
 		"-size", "512x512",     // Stretch box to absolute boundary to eliminate edge margins
 		"-gravity", "West",     // Left aligned, vertically centered
-		fmt.Sprintf(`caption:%s`, text),
+		fmt.Sprintf(`caption:%s`, sanitizeMagickText(text)),
 		"-filter", "box",
 		"-blur", "0x2.5",       // More blur as requested ("agak blur")
 		"-resize", "512x512!",  // Ensure exact 512x512 sticker size
@@ -258,4 +274,13 @@ func (f *FFmpegService) GenerateBratSticker(text string) ([]byte, error) {
 
 	// Transcode with FFmpeg to guarantee mobile WhatsApp WebP compatibility
 	return f.ImageToWebP(pngData)
+}
+
+// sanitizeMagickText prevents ImageMagick @file syntax injections.
+func sanitizeMagickText(s string) string {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "@") || strings.HasPrefix(s, "-") {
+		return " " + s
+	}
+	return s
 }

@@ -13,17 +13,22 @@ import (
 // DownloaderHandler handles media download commands.
 type DownloaderHandler struct {
 	ytdlp *services.YtDlpService
+	pool  *services.WorkerPool
 }
 
 // NewDownloaderHandler creates a new DownloaderHandler.
-func NewDownloaderHandler() *DownloaderHandler {
+func NewDownloaderHandler(pool *services.WorkerPool) *DownloaderHandler {
 	return &DownloaderHandler{
 		ytdlp: services.NewYtDlpService(),
+		pool:  pool,
 	}
 }
 
 // HandleVideo downloads video from any supported platform (IG, TikTok, FB, YouTube, etc).
 func (h *DownloaderHandler) HandleVideo(client *whatsmeow.Client, evt *events.Message, args []string) {
+	h.pool.Acquire()
+	defer h.pool.Release()
+
 	if len(args) == 0 {
 		utils.ReplyTextDirect(client, evt, "Penggunaan: .dl <url>\nSupport: IG, TikTok, FB, YouTube, Twitter, dll.")
 		return
@@ -62,6 +67,9 @@ func (h *DownloaderHandler) HandleVideo(client *whatsmeow.Client, evt *events.Me
 
 // HandleAudio downloads audio (MP3) from YouTube/TikTok/etc.
 func (h *DownloaderHandler) HandleAudio(client *whatsmeow.Client, evt *events.Message, args []string) {
+	h.pool.Acquire()
+	defer h.pool.Release()
+
 	if len(args) == 0 {
 		utils.ReplyTextDirect(client, evt, "Penggunaan: .mp3 <url>")
 		return

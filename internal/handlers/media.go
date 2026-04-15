@@ -16,17 +16,22 @@ import (
 // MediaHandler handles sticker creation and conversion commands.
 type MediaHandler struct {
 	ffmpeg *services.FFmpegService
+	pool   *services.WorkerPool
 }
 
 // NewMediaHandler creates a new MediaHandler.
-func NewMediaHandler() *MediaHandler {
+func NewMediaHandler(pool *services.WorkerPool) *MediaHandler {
 	return &MediaHandler{
 		ffmpeg: services.NewFFmpegService(),
+		pool:   pool,
 	}
 }
 
 // HandleSticker converts an image/video/GIF to a WebP sticker.
 func (h *MediaHandler) HandleSticker(client *whatsmeow.Client, evt *events.Message) {
+	h.pool.Acquire()
+	defer h.pool.Release()
+
 	// Try to get media from the message itself (image/video with caption)
 	// or from a quoted message.
 	var mediaMsg = evt.Message
@@ -94,6 +99,9 @@ func (h *MediaHandler) HandleSticker(client *whatsmeow.Client, evt *events.Messa
 
 // HandleStickerToImage converts a sticker back to a PNG image.
 func (h *MediaHandler) HandleStickerToImage(client *whatsmeow.Client, evt *events.Message) {
+	h.pool.Acquire()
+	defer h.pool.Release()
+
 	// Get the sticker from a quoted message.
 	quoted := utils.GetQuotedMessage(evt)
 	if quoted == nil || quoted.GetStickerMessage() == nil {
@@ -126,6 +134,9 @@ func (h *MediaHandler) HandleStickerToImage(client *whatsmeow.Client, evt *event
 
 // HandleRetrieveViewOnce resends a view once message as a normal message.
 func (h *MediaHandler) HandleRetrieveViewOnce(client *whatsmeow.Client, evt *events.Message) {
+	h.pool.Acquire()
+	defer h.pool.Release()
+
 	// Get quoted message.
 	quoted := utils.GetQuotedMessage(evt)
 	if quoted == nil || !utils.IsMediaMessage(quoted) {
@@ -186,6 +197,9 @@ func (h *MediaHandler) HandleImage(client *whatsmeow.Client, evt *events.Message
 // HandleTextSticker adds meme-style text to a sticker or image (command: .ts <text>).
 // Usage: send/reply sticker or image with .ts TEKS
 func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.Message, args []string) {
+	h.pool.Acquire()
+	defer h.pool.Release()
+
 	if len(args) == 0 {
 		utils.ReplyTextDirect(client, evt, "Penggunaan: kirim/reply gambar atau sticker dengan .ts <teks>\nContoh: .ts MENGANCAM")
 		return
@@ -256,6 +270,9 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 
 // HandleBrat creates a 'brat' style sticker from text.
 func (h *MediaHandler) HandleBrat(client *whatsmeow.Client, evt *events.Message, args []string) {
+	h.pool.Acquire()
+	defer h.pool.Release()
+
 	if len(args) == 0 {
 		utils.ReplyTextDirect(client, evt, "Penggunaan: .brat <teks>\nContoh: .brat hello saya ilham")
 		return
