@@ -79,7 +79,7 @@ func (h *MediaHandler) HandleSticker(client *whatsmeow.Client, evt *events.Messa
 
 	if err != nil {
 		slog.Error("conversion failed", "error", err)
-		utils.ReplyTextDirect(client, evt, "Gagal convert ke sticker.")
+		utils.ReplyTextDirect(client, evt, fmt.Sprintf("Gagal convert ke sticker: %v", err))
 		return
 	}
 
