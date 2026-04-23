@@ -130,20 +130,29 @@ chisa_bot/
 - **Memory limits**: Media downloads are capped at 100MB. Video stickers limited to 8s.
 - **Rate limiting**: Per-user cooldown (3s) and per-chat sliding window (10 commands/min).
 - **URL validation**: All user-supplied URLs are validated before being passed to external tools.
+- **Logging**: Menggunakan `log/slog` bawaan Go untuk structured logging.
+- **Resilience**: Operasi berat (FFmpeg/yt-dlp) dibatasi oleh `context` timeouts untuk mencegah memory leak.
 
 ## Configuration
 
-All configuration is centralized in `internal/config/config.go`:
+Configuration is managed via environment variables. You can copy the `.env.example` to `.env` to override the defaults:
 
-```go
-var Prefixes = []string{".", "!", "/"}
+```bash
+cp .env.example .env
+```
 
-const (
-    StickerPackName   = "ChisaBot"
-    StickerAuthorName = "chisa_bot"
-)
-
-// Rate limiting, media limits, warning thresholds, file paths, etc.
+Example `.env` file:
+```env
+PREFIXES=.,!,/
+BOT_DATABASE_FILE=bot.db
+RATE_LIMIT_USER_COOLDOWN_SEC=3
+RATE_LIMIT_CHAT_MAX=10
+RATE_LIMIT_CHAT_WINDOW_SEC=60
+MAX_FILE_SIZE_MB=100
+MAX_AUDIO_SIZE_MB=50
+MAX_VIDEO_STICKER_SEC=8
+MAX_WARNINGS_BEFORE_KICK=3
+MAX_CONCURRENT_MEDIA_TASKS=4
 ```
 
 ## Stopping the Bot
