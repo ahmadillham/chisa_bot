@@ -73,6 +73,18 @@ func (h *MediaHandler) HandleSticker(client *whatsmeow.Client, evt *events.Messa
 		}
 		webpData, err = h.ffmpeg.VideoToWebP(data, ext)
 		isAnimated = true
+	} else if mediaMsg.GetDocumentMessage() != nil {
+		mimetype := mediaMsg.GetDocumentMessage().GetMimetype()
+		if strings.HasPrefix(mimetype, "video/") || strings.HasSuffix(mimetype, "gif") {
+			webpData, err = h.ffmpeg.VideoToWebP(data, ".mp4")
+			isAnimated = true
+		} else {
+			webpData, err = h.ffmpeg.ImageToWebP(data)
+		}
+	} else if mediaMsg.GetStickerMessage() != nil {
+		// User is trying to re-sticker a sticker. We can just re-send it with new EXIF.
+		webpData = data
+		isAnimated = mediaMsg.GetStickerMessage().GetIsAnimated()
 	} else {
 		err = fmt.Errorf("unsupported media type for sticker")
 	}
@@ -221,12 +233,13 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 		targetMsg = quoted
 	}
 
-	// Accept sticker, image, or video (GIF).
+	// Accept sticker, image, video (GIF), or document.
 	stk := targetMsg.GetStickerMessage()
 	img := targetMsg.GetImageMessage()
 	vid := targetMsg.GetVideoMessage()
+	doc := targetMsg.GetDocumentMessage()
 
-	if stk == nil && img == nil && vid == nil {
+	if stk == nil && img == nil && vid == nil && doc == nil {
 		utils.ReplyTextDirect(client, evt, "Kirim atau reply gambar/video/sticker dengan caption .ts <teks>")
 		return
 	}
@@ -255,6 +268,15 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 			ext = ".gif"
 		}
 		isAnimated = true
+	} else if doc != nil {
+		mimetype := doc.GetMimetype()
+		if strings.HasPrefix(mimetype, "video/") || strings.HasSuffix(mimetype, "gif") {
+			ext = ".mp4"
+			isAnimated = true
+		} else {
+			ext = ".jpg"
+			isAnimated = false
+		}
 	}
 
 	// Overlay the text.
