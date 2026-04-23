@@ -2,9 +2,9 @@ package config
 
 // Remote messages
 const (
-	MsgOnlyGroup      = "Perintah ini hanya bisa digunakan di dalam grup."
-	MsgOnlyAdmin      = "Perintah ini hanya untuk admin grup."
-	MsgMenu           = `
+	MsgOnlyGroup = "Perintah ini hanya bisa digunakan di dalam grup."
+	MsgOnlyAdmin = "Perintah ini hanya untuk admin grup."
+	MsgMenu      = `
 • .s / .sticker 
 • .ts <text> 
 • .brat <text> 

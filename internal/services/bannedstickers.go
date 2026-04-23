@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 )
@@ -23,7 +23,7 @@ type BannedStickerStore struct {
 // NewBannedStickerStore creates a new BannedStickerStore and ensures the table exists.
 func NewBannedStickerStore(db *sql.DB, defaults []BannedStickerEntry) *BannedStickerStore {
 	store := &BannedStickerStore{db: db}
-	
+
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS banned_stickers (
 			hash TEXT PRIMARY KEY,
@@ -31,11 +31,12 @@ func NewBannedStickerStore(db *sql.DB, defaults []BannedStickerEntry) *BannedSti
 		)
 	`)
 	if err != nil {
-		log.Fatalf("Failed to create banned_stickers table: %v", err)
+		slog.Error("Failed to create banned_stickers table", "error", err)
+		os.Exit(1)
 	}
 
 	store.migrateLegacyJSON()
-	
+
 	// Seed defaults if empty
 	for _, entry := range defaults {
 		h := strings.ToLower(entry.Hash)
@@ -57,7 +58,7 @@ func (s *BannedStickerStore) IsBanned(hash string) bool {
 // Returns the alias used and true if newly added.
 func (s *BannedStickerStore) Add(hash string, alias string) (string, bool) {
 	h := strings.ToLower(hash)
-	
+
 	var existingAlias string
 	err := s.db.QueryRow(`SELECT alias FROM banned_stickers WHERE hash = ?`, h).Scan(&existingAlias)
 	if err == nil {
@@ -70,7 +71,7 @@ func (s *BannedStickerStore) Add(hash string, alias string) (string, bool) {
 
 	_, err = s.db.Exec(`INSERT INTO banned_stickers (hash, alias) VALUES (?, ?)`, h, alias)
 	if err != nil {
-		log.Printf("[bannedstickers] Error adding: %v", err)
+		slog.Error("Error adding", "error", err)
 	}
 	return alias, true
 }
@@ -80,7 +81,7 @@ func (s *BannedStickerStore) Remove(identifier string) bool {
 	id := strings.ToLower(identifier)
 	res, err := s.db.Exec(`DELETE FROM banned_stickers WHERE hash = ? OR LOWER(alias) = ?`, id, id)
 	if err != nil {
-		log.Printf("[bannedstickers] Error removing: %v", err)
+		slog.Error("Error removing", "error", err)
 		return false
 	}
 	rows, _ := res.RowsAffected()
@@ -130,8 +131,8 @@ func (s *BannedStickerStore) migrateLegacyJSON() {
 		return
 	}
 
-	log.Println("[bannedstickers] Running legacy JSON migration...")
-	
+	slog.Info("[bannedstickers] Running legacy JSON migration...")
+
 	// Try standard list format
 	var legacyData []BannedStickerEntry
 	if err := json.Unmarshal(data, &legacyData); err == nil {

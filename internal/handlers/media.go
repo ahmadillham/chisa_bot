@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
 	"go.mau.fi/whatsmeow"
@@ -42,7 +42,7 @@ func (h *MediaHandler) HandleSticker(client *whatsmeow.Client, evt *events.Messa
 		quoted := utils.GetQuotedMessage(evt)
 		if quoted == nil || !utils.IsMediaMessage(quoted) {
 			if err := utils.ReplyTextDirect(client, evt, "Kirim atau reply gambar/video/GIF dengan caption .sticker atau .s"); err != nil {
-				log.Printf("[sticker] failed to reply: %v", err)
+				slog.Error("failed to reply", "error", err)
 			}
 			return
 		}
@@ -52,7 +52,7 @@ func (h *MediaHandler) HandleSticker(client *whatsmeow.Client, evt *events.Messa
 	// Download the media.
 	data, err := utils.DownloadMediaFromMessage(client, mediaMsg)
 	if err != nil {
-		log.Printf("[sticker] failed to download media: %v", err)
+		slog.Error("failed to download media", "error", err)
 		utils.ReplyTextDirect(client, evt, "Gagal download media.")
 		return
 	}
@@ -78,7 +78,7 @@ func (h *MediaHandler) HandleSticker(client *whatsmeow.Client, evt *events.Messa
 	}
 
 	if err != nil {
-		log.Printf("[sticker] conversion failed: %v", err)
+		slog.Error("conversion failed", "error", err)
 		utils.ReplyTextDirect(client, evt, "Gagal convert ke sticker.")
 		return
 	}
@@ -86,13 +86,13 @@ func (h *MediaHandler) HandleSticker(client *whatsmeow.Client, evt *events.Messa
 	// Add Exif metadata (pack name & author).
 	webpData, err = utils.AddStickerExif(webpData, config.StickerPackName, config.StickerAuthorName)
 	if err != nil {
-		log.Printf("[sticker] exif injection failed: %v", err)
+		slog.Error("exif injection failed", "error", err)
 		// Send without exif, it's not critical.
 	}
 
 	// Send the sticker.
 	if err := utils.ReplySticker(client, evt, webpData, isAnimated); err != nil {
-		log.Printf("[sticker] failed to send sticker: %v", err)
+		slog.Error("failed to send sticker", "error", err)
 		utils.ReplyTextDirect(client, evt, "Gagal mengirim sticker.")
 	}
 }
@@ -112,7 +112,7 @@ func (h *MediaHandler) HandleStickerToImage(client *whatsmeow.Client, evt *event
 	// Download the sticker.
 	data, err := utils.DownloadMediaFromMessage(client, quoted)
 	if err != nil {
-		log.Printf("[toimg] failed to download sticker: %v", err)
+		slog.Error("failed to download sticker", "error", err)
 		utils.ReplyTextDirect(client, evt, "Gagal download sticker.")
 		return
 	}
@@ -120,14 +120,14 @@ func (h *MediaHandler) HandleStickerToImage(client *whatsmeow.Client, evt *event
 	// Convert WebP to PNG.
 	pngData, err := h.ffmpeg.WebPToImage(data)
 	if err != nil {
-		log.Printf("[toimg] conversion failed: %v", err)
+		slog.Error("conversion failed", "error", err)
 		utils.ReplyTextDirect(client, evt, "Gagal convert sticker ke gambar.")
 		return
 	}
 
 	// Send the image.
 	if err := utils.ReplyImage(client, evt, pngData, "image/png", ""); err != nil {
-		log.Printf("[toimg] failed to send image: %v", err)
+		slog.Error("failed to send image", "error", err)
 		utils.ReplyTextDirect(client, evt, "Gagal mengirim gambar.")
 	}
 }
@@ -147,7 +147,7 @@ func (h *MediaHandler) HandleRetrieveViewOnce(client *whatsmeow.Client, evt *eve
 	// Download media.
 	data, err := utils.DownloadMediaFromMessage(client, quoted)
 	if err != nil {
-		log.Printf("[save] failed to download media: %v", err)
+		slog.Error("failed to download media", "error", err)
 		utils.ReplyTextDirect(client, evt, "Gagal download media.")
 		return
 	}
@@ -166,7 +166,7 @@ func (h *MediaHandler) HandleRetrieveViewOnce(client *whatsmeow.Client, evt *eve
 	}
 
 	if err != nil {
-		log.Printf("[save] failed to send media: %v", err)
+		slog.Error("failed to send media", "error", err)
 		utils.ReplyTextDirect(client, evt, "Gagal mengirim ulang media.")
 	}
 }
@@ -234,7 +234,7 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 	// Download the media.
 	data, err := utils.DownloadMediaFromMessage(client, targetMsg)
 	if err != nil {
-		log.Printf("[ts] failed to download: %v", err)
+		slog.Error("failed to download", "error", err)
 		utils.ReplyTextDirect(client, evt, "Gagal download media.")
 		return
 	}
@@ -260,7 +260,7 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 	// Overlay the text.
 	webpData, err := h.ffmpeg.AddTextToWebP(data, text, ext, isAnimated)
 	if err != nil {
-		log.Printf("[ts] failed to add text: %v", err)
+		slog.Error("failed to add text", "error", err)
 		errMsg := "Gagal menambahkan teks ke sticker."
 		if strings.Contains(err.Error(), "ffmpeg") {
 			errMsg += " Pastikan FFmpeg terinstal di server."
@@ -274,11 +274,10 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 
 	// Send as sticker.
 	if err := utils.ReplySticker(client, evt, webpData, isAnimated); err != nil {
-		log.Printf("[ts] failed to send sticker: %v", err)
+		slog.Error("failed to send sticker", "error", err)
 		utils.ReplyTextDirect(client, evt, "Gagal mengirim sticker.")
 	}
 }
-
 
 // HandleBrat creates a 'brat' style sticker from text.
 func (h *MediaHandler) HandleBrat(client *whatsmeow.Client, evt *events.Message, args []string) {
@@ -303,7 +302,7 @@ func (h *MediaHandler) HandleBrat(client *whatsmeow.Client, evt *events.Message,
 	// Generate brat sticker image data.
 	webpData, err := h.ffmpeg.GenerateBratSticker(text)
 	if err != nil {
-		log.Printf("[brat] failed to generate: %v", err)
+		slog.Error("failed to generate", "error", err)
 		utils.ReplyTextDirect(client, evt, "Gagal membuat sticker brat. Pastikan ImageMagick (magick/convert) terinstal.")
 		return
 	}
@@ -313,7 +312,7 @@ func (h *MediaHandler) HandleBrat(client *whatsmeow.Client, evt *events.Message,
 
 	// Send sticker.
 	if err := utils.ReplySticker(client, evt, webpData, false); err != nil {
-		log.Printf("[brat] failed to send sticker: %v", err)
+		slog.Error("failed to send sticker", "error", err)
 		utils.ReplyTextDirect(client, evt, "Gagal mengirim sticker brat.")
 	}
 }

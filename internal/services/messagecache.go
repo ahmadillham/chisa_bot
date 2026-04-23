@@ -3,7 +3,8 @@ package services
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
 	"time"
 
 	waProto "go.mau.fi/whatsmeow/binary/proto"
@@ -27,7 +28,8 @@ func NewMessageCacheStore(db *sql.DB) *MessageCacheStore {
 		)
 	`)
 	if err != nil {
-		log.Fatalf("Failed to create message_cache table: %v", err)
+		slog.Error("Failed to create message_cache table", "error", err)
+		os.Exit(1)
 	}
 
 	return store
@@ -38,10 +40,10 @@ func (s *MessageCacheStore) Save(stanzaID string, msg *waProto.Message) {
 	if msg == nil || stanzaID == "" {
 		return
 	}
-	
+
 	bytes, err := proto.Marshal(msg)
 	if err != nil {
-		log.Printf("[messagecache] Failed to marshal message %s: %v", stanzaID, err)
+		slog.Error("Failed to marshal message", "val", stanzaID, "error", err)
 		return
 	}
 
@@ -51,7 +53,7 @@ func (s *MessageCacheStore) Save(stanzaID string, msg *waProto.Message) {
 		VALUES (?, ?, ?)
 	`, stanzaID, bytes, now)
 	if err != nil {
-		log.Printf("[messagecache] Failed to save message %s: %v", stanzaID, err)
+		slog.Error("Failed to save message", "val", stanzaID, "error", err)
 	}
 }
 
@@ -78,8 +80,8 @@ func (s *MessageCacheStore) Clean() {
 	deadline := time.Now().Add(-24 * time.Hour).Unix()
 	res, err := s.db.Exec(`DELETE FROM message_cache WHERE created_at < ?`, deadline)
 	if err != nil {
-		log.Printf("[messagecache] failed to clean old messages: %v", err)
+		slog.Error("failed to clean old messages", "error", err)
 	} else if rows, _ := res.RowsAffected(); rows > 0 {
-		log.Printf("[messagecache] deleted %d old messages", rows)
+		slog.Info("deleted %d old messages", "val", rows)
 	}
 }

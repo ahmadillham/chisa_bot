@@ -2,14 +2,14 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
-	"database/sql"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/mdp/qrterminal/v3"
@@ -27,17 +27,26 @@ import (
 )
 
 func main() {
+	// Load configuration
+	config.Load()
+
+	// Initialize Logger
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
 	// Initialize SQLite store for sessions.
 	dbLog := waLog.Stdout("Database", "WARN", true)
 	container, err := sqlstore.New(context.Background(), "sqlite3", "file:session.db?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on", dbLog)
 	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		slog.Error("Failed to initialize database", "error", err)
+		os.Exit(1)
 	}
 
 	// Get the first device from the store, or create a new one.
 	deviceStore, err := container.GetFirstDevice(context.Background())
 	if err != nil {
-		log.Fatalf("Failed to get device: %v", err)
+		slog.Error("Failed to get device", "error", err)
+		os.Exit(1)
 	}
 
 	clientLog := waLog.Stdout("Client", "WARN", true)
@@ -45,7 +54,8 @@ func main() {
 
 	botDB, err := sql.Open("sqlite3", "file:"+config.BotDatabaseFile+"?_journal_mode=WAL&_foreign_keys=on")
 	if err != nil {
-		log.Fatalf("Failed to initialize bot DB: %v", err)
+		slog.Error("Failed to initialize bot DB", "error", err)
+		os.Exit(1)
 	}
 
 	// Initialize handlers using the bot SQLite DB.
@@ -118,7 +128,7 @@ func main() {
 			go func() {
 				defer func() {
 					if r := recover(); r != nil {
-						log.Printf("[PANIC RECOVERED] %v", r)
+						slog.Error("PANIC RECOVERED", "panic", r)
 					}
 				}()
 				handleMessage(client, evt, registry, groupHandler, antiStickerHandler, limiter, autoTagStore)
@@ -129,20 +139,20 @@ func main() {
 			go func() {
 				defer func() {
 					if r := recover(); r != nil {
-						log.Printf("[PANIC RECOVERED] %v", r)
+						slog.Error("PANIC RECOVERED in group handler", "panic", r)
 					}
 				}()
 				groupHandler.HandleGroupParticipants(client, evt)
 			}()
 
 		case *events.Connected:
-			log.Println("Bot connected successfully!")
+			slog.Info("Bot connected successfully!")
 
 		case *events.LoggedOut:
-			log.Println("Bot logged out. Please re-authenticate.")
+			slog.Info("Bot logged out. Please re-authenticate.")
 
 		case *events.StreamReplaced:
-			log.Println("Stream replaced (another device connected).")
+			slog.Info("Stream replaced (another device connected).")
 		}
 	})
 
@@ -163,7 +173,8 @@ func main() {
 		// No session found, generate QR code for login.
 		qrChan, _ := client.GetQRChannel(context.Background())
 		if err := client.Connect(); err != nil {
-			log.Fatalf("Failed to connect: %v", err)
+			slog.Error("Failed to connect", "error", err)
+			os.Exit(1)
 		}
 
 		for evt := range qrChan {
@@ -173,30 +184,31 @@ func main() {
 				qrterminal.GenerateHalfBlock(evt.Code, qrterminal.L, os.Stdout)
 				fmt.Println()
 			case "login":
-				log.Println("Login successful!")
+				slog.Info("Login successful!")
 			case "timeout":
-				log.Println("QR code timed out. Please restart the bot.")
+				slog.Error("QR code timed out. Please restart the bot.")
 				os.Exit(1)
 			}
 		}
 	} else {
 		// Session exists, connect directly.
 		if err := client.Connect(); err != nil {
-			log.Fatalf("Failed to connect: %v", err)
+			slog.Error("Failed to connect", "error", err)
+			os.Exit(1)
 		}
-		log.Println("🔄 Reconnected using saved session.")
+		slog.Info("🔄 Reconnected using saved session.")
 	}
 
 	// Graceful shutdown on OS signals.
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	log.Println("🤖 Bot is now running. Press Ctrl+C to stop.")
+	slog.Info("🤖 Bot is now running. Press Ctrl+C to stop.")
 	<-sigChan
 
-	log.Println("🛑 Shutting down gracefully...")
+	slog.Info("🛑 Shutting down gracefully...")
 	client.Disconnect()
-	log.Println("👋 Bot stopped. Goodbye!")
+	slog.Info("👋 Bot stopped. Goodbye!")
 }
 
 // handleMessage parses and routes incoming messages to the appropriate handler.
@@ -235,7 +247,7 @@ func handleMessage(
 			}
 		}
 
-		log.Printf("[CMD] %s | from: %s | chat: %s", parsed.Command, evt.Info.Sender.User, evt.Info.Chat.String())
+		slog.Info("Command executed", "cmd", parsed.Command, "sender", evt.Info.Sender.User, "chat", evt.Info.Chat.String())
 		registry.Execute(client, evt, parsed.Command, parsed.Args)
 		return
 	}
@@ -248,7 +260,7 @@ func handleMessage(
 	// 2. If not a command, check for TikTok links in group chats.
 	if evt.Info.IsGroup && (strings.Contains(text, "tiktok.com/") || strings.Contains(text, "vm.tiktok.com/")) {
 		if !autoTagStore.IsDisabled(evt.Info.Chat.String()) {
-			log.Printf("[AUTO-TAG] TikTok link detected in %s", evt.Info.Chat.String())
+			slog.Info("TikTok link detected (Auto-Tag)", "chat", evt.Info.Chat.String())
 			groupHandler.TagAll(client, evt.Info.Chat, evt.Message, evt.Info.ID, evt.Info.Sender, text)
 		}
 	}

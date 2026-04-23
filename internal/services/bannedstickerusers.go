@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 )
@@ -17,14 +17,15 @@ type BannedStickerUserStore struct {
 // NewBannedStickerUserStore creates a new store and ensures the table exists.
 func NewBannedStickerUserStore(db *sql.DB) *BannedStickerUserStore {
 	store := &BannedStickerUserStore{db: db}
-	
+
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS banned_sticker_users (
 			jid TEXT PRIMARY KEY
 		)
 	`)
 	if err != nil {
-		log.Fatalf("Failed to create banned_sticker_users table: %v", err)
+		slog.Error("Failed to create banned_sticker_users table", "error", err)
+		os.Exit(1)
 	}
 
 	store.migrateLegacyJSON()
@@ -42,7 +43,7 @@ func (s *BannedStickerUserStore) IsBanned(jid string) bool {
 func (s *BannedStickerUserStore) Add(jid string) bool {
 	res, err := s.db.Exec(`INSERT OR IGNORE INTO banned_sticker_users (jid) VALUES (?)`, jid)
 	if err != nil {
-		log.Printf("[bannedstickerusers] Error adding user: %v", err)
+		slog.Error("Error adding user", "error", err)
 		return false
 	}
 	rows, _ := res.RowsAffected()
@@ -53,7 +54,7 @@ func (s *BannedStickerUserStore) Add(jid string) bool {
 func (s *BannedStickerUserStore) Remove(jid string) bool {
 	res, err := s.db.Exec(`DELETE FROM banned_sticker_users WHERE jid = ?`, jid)
 	if err != nil {
-		log.Printf("[bannedstickerusers] Error removing user: %v", err)
+		slog.Error("Error removing user", "error", err)
 		return false
 	}
 	rows, _ := res.RowsAffected()
@@ -100,11 +101,11 @@ func (s *BannedStickerUserStore) migrateLegacyJSON() {
 		return
 	}
 
-	log.Println("[bannedstickerusers] Running legacy JSON migration...")
+	slog.Info("[bannedstickerusers] Running legacy JSON migration...")
 	var wrappedData struct {
 		JIDs map[string]bool `json:"jids"`
 	}
-	
+
 	if err := json.Unmarshal(data, &wrappedData); err == nil && wrappedData.JIDs != nil {
 		for jid, isBanned := range wrappedData.JIDs {
 			if isBanned {

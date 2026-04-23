@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"chisa_bot/internal/config"
 )
@@ -104,7 +106,10 @@ func (s *YtDlpService) DownloadInstagram(sourceURL string) (*MediaResult, error)
 		sourceURL,
 	}
 
-	cmd := exec.Command(s.bin, args...)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, s.bin, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		outputStr := string(output)
@@ -169,7 +174,9 @@ func (s *YtDlpService) scrapeIGImage(url string) (*MediaResult, error) {
 	// Use a crawler UA to hopefully get the SSR info
 	req.Header.Set("User-Agent", "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)")
 
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -256,7 +263,10 @@ func (s *YtDlpService) downloadGeneric(sourceURL string) (*MediaResult, error) {
 		sourceURL,
 	}
 
-	cmd := exec.Command(s.bin, args...)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, s.bin, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("download failed: %w\nOutput: %s", err, string(output))
@@ -292,7 +302,10 @@ func (s *YtDlpService) DownloadAudio(sourceURL string) (*MediaResult, error) {
 	outputPath := filepath.Join(tmpDir, "audio.mp3")
 	maxSize := fmt.Sprintf("%dM", config.MaxAudioSizeMB)
 
-	cmd := exec.Command(s.bin,
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, s.bin,
 		"-x",
 		"--audio-format", "mp3",
 		"--audio-quality", "0",
@@ -334,7 +347,10 @@ func (s *YtDlpService) DownloadTikTok(sourceURL string) (*MediaResult, error) {
 	outputPath := filepath.Join(tmpDir, "tiktok.mp4")
 	maxSize := fmt.Sprintf("%dM", config.MaxFileSizeMB)
 
-	cmd := exec.Command(s.bin,
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, s.bin,
 		"-f", "best[ext=mp4]/best",
 		"--merge-output-format", "mp4",
 		"--max-filesize", maxSize,
@@ -366,7 +382,10 @@ func (s *YtDlpService) DownloadTikTok(sourceURL string) (*MediaResult, error) {
 
 // getTitle fetches the title of a URL using yt-dlp --dump-json.
 func (s *YtDlpService) getTitle(sourceURL string) string {
-	cmd := exec.Command(s.bin,
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, s.bin,
 		"--dump-json",
 		"--no-download",
 		"--no-warnings",

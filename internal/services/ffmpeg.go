@@ -1,11 +1,14 @@
 package services
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"chisa_bot/internal/config"
 )
@@ -25,7 +28,7 @@ func NewFFmpegService() *FFmpegService {
 		}
 	}
 	if f.fontPath == "" {
-		// Fallback to the default hardcoded one if all else fails, 
+		// Fallback to the default hardcoded one if all else fails,
 		// though it will likely fail during execution too.
 		f.fontPath = config.MemeFontPath
 	}
@@ -47,7 +50,10 @@ func (f *FFmpegService) ImageToWebP(inputData []byte) ([]byte, error) {
 		return nil, fmt.Errorf("failed to write input file: %w", err)
 	}
 
-	cmd := exec.Command("ffmpeg",
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "ffmpeg",
 		"-i", inputPath,
 		"-vf", "scale='if(gt(iw,ih),510,-2)':'if(gt(iw,ih),-2,510)',format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000",
 		"-c:v", "libwebp",
@@ -85,7 +91,10 @@ func (f *FFmpegService) VideoToWebP(inputData []byte, ext string) ([]byte, error
 	}
 
 	// Limit to 8 seconds max, scale to 512x512 max, 15 fps for smaller size.
-	cmd := exec.Command("ffmpeg",
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "ffmpeg",
 		"-i", inputPath,
 		"-t", "8",
 		"-vf", "scale='if(gt(iw,ih),510,-2)':'if(gt(iw,ih),-2,510)',fps=15,format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000",
@@ -121,7 +130,10 @@ func (f *FFmpegService) WebPToImage(inputData []byte) ([]byte, error) {
 		return nil, fmt.Errorf("failed to write input file: %w", err)
 	}
 
-	cmd := exec.Command("ffmpeg",
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "ffmpeg",
 		"-i", inputPath,
 		"-frames:v", "1",
 		"-y", outputPath,
@@ -232,10 +244,12 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string, ext string,
 		"-y", outputPath,
 	)
 
-	cmd := exec.Command("ffmpeg", ffmpegArgs...)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "ffmpeg", ffmpegArgs...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Printf("[FFmpeg] Filter chain: %s", drawFilter)
+		slog.Info("Filter chain", "val", drawFilter)
 		return nil, fmt.Errorf("ffmpeg ts failed: %w\nOutput: %s", err, string(output))
 	}
 
@@ -272,13 +286,13 @@ func (f *FFmpegService) GenerateBratSticker(text string) ([]byte, error) {
 		"-background", "white",
 		"-fill", "black",
 		"-font", "DejaVu-Sans", // More robust font handling across different Linux bounds
-		"-size", "512x512",     // Stretch box to absolute boundary to eliminate edge margins
-		"-gravity", "West",     // Left aligned, vertically centered
+		"-size", "512x512", // Stretch box to absolute boundary to eliminate edge margins
+		"-gravity", "West", // Left aligned, vertically centered
 		fmt.Sprintf(`caption:%s`, sanitizeMagickText(text)),
 		"-filter", "box",
-		"-blur", "0x2.5",       // More blur as requested ("agak blur")
-		"-resize", "512x512!",  // Ensure exact 512x512 sticker size
-		"-strip",               // STRIP ALL METADATA/ICC PROFILES to prevent WhatsApp Mobile crash!
+		"-blur", "0x2.5", // More blur as requested ("agak blur")
+		"-resize", "512x512!", // Ensure exact 512x512 sticker size
+		"-strip", // STRIP ALL METADATA/ICC PROFILES to prevent WhatsApp Mobile crash!
 		outputPath,
 	}
 
@@ -288,7 +302,9 @@ func (f *FFmpegService) GenerateBratSticker(text string) ([]byte, error) {
 		bin = "convert"
 	}
 
-	cmd := exec.Command(bin, args...)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("imagemagick brat generation failed: %w\nOutput: %s", err, string(output))

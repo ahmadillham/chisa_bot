@@ -3,7 +3,7 @@ package services
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"os"
 )
 
@@ -15,7 +15,7 @@ type WarnStore struct {
 // NewWarnStore creates a new WarnStore and ensures the table exists.
 func NewWarnStore(db *sql.DB) *WarnStore {
 	store := &WarnStore{db: db}
-	
+
 	// Create table
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS warnings (
@@ -26,7 +26,8 @@ func NewWarnStore(db *sql.DB) *WarnStore {
 		)
 	`)
 	if err != nil {
-		log.Fatalf("Failed to create warnings table: %v", err)
+		slog.Error("Failed to create warnings table", "error", err)
+		os.Exit(1)
 	}
 
 	store.migrateLegacyJSON()
@@ -37,23 +38,19 @@ func NewWarnStore(db *sql.DB) *WarnStore {
 // Returns the new count.
 func (s *WarnStore) AddWarning(groupJID, userJID string) int {
 	var count int
-	// Insert or increment
-	_, err := s.db.Exec(`
+	err := s.db.QueryRow(`
 		INSERT INTO warnings (group_jid, user_jid, count) 
 		VALUES (?, ?, 1)
 		ON CONFLICT(group_jid, user_jid) 
 		DO UPDATE SET count = warnings.count + 1
-	`, groupJID, userJID)
-	if err != nil {
-		log.Printf("[warnstore] error adding warning: %v", err)
-		return s.GetWarning(groupJID, userJID) // return current on error
-	}
+		RETURNING count
+	`, groupJID, userJID).Scan(&count)
 	
-	// Fetch new count
-	err = s.db.QueryRow(`SELECT count FROM warnings WHERE group_jid = ? AND user_jid = ?`, groupJID, userJID).Scan(&count)
 	if err != nil {
-		log.Printf("[warnstore] error getting new count: %v", err)
+		slog.Error("error adding warning", "error", err)
+		return s.GetWarning(groupJID, userJID) // fallback if RETURNING fails on very old SQLite
 	}
+
 	return count
 }
 
@@ -62,7 +59,7 @@ func (s *WarnStore) GetWarning(groupJID, userJID string) int {
 	var count int
 	err := s.db.QueryRow(`SELECT count FROM warnings WHERE group_jid = ? AND user_jid = ?`, groupJID, userJID).Scan(&count)
 	if err != nil && err != sql.ErrNoRows {
-		log.Printf("[warnstore] error getting warning: %v", err)
+		slog.Error("error getting warning", "error", err)
 	}
 	return count
 }
@@ -71,7 +68,7 @@ func (s *WarnStore) GetWarning(groupJID, userJID string) int {
 func (s *WarnStore) ResetWarning(groupJID, userJID string) {
 	_, err := s.db.Exec(`DELETE FROM warnings WHERE group_jid = ? AND user_jid = ?`, groupJID, userJID)
 	if err != nil {
-		log.Printf("[warnstore] error resetting warning: %v", err)
+		slog.Error("error resetting warning", "error", err)
 	}
 }
 
@@ -83,7 +80,7 @@ func (s *WarnStore) migrateLegacyJSON() {
 		return // File doesn't exist or permissions error, ignore
 	}
 
-	log.Println("[warnstore] Running legacy JSON migration...")
+	slog.Info("[warnstore] Running legacy JSON migration...")
 	var counts map[string]map[string]int
 	if err := json.Unmarshal(data, &counts); err == nil {
 		for groupJID, users := range counts {

@@ -3,7 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"go.mau.fi/whatsmeow"
@@ -35,7 +35,7 @@ func NewGroupHandler(warnStore *services.WarnStore, autoTagStore *services.AutoT
 func (h *GroupHandler) IsAdmin(client *whatsmeow.Client, chatJID types.JID, userJID types.JID) bool {
 	groupInfo, err := client.GetGroupInfo(context.Background(), chatJID)
 	if err != nil {
-		log.Printf("[group] failed to get info: %v", err)
+		slog.Error("failed to get info", "error", err)
 		return false
 	}
 	for _, p := range groupInfo.Participants {
@@ -53,13 +53,13 @@ func (h *GroupHandler) HandleGroupParticipants(client *whatsmeow.Client, evt *ev
 	}
 
 	for _, join := range evt.Join {
-		log.Printf("[group] User joined: %s in %s", join.String(), evt.JID.String())
+		slog.Info("User joined in", "user", join.String(), "group", evt.JID.String())
 		welcomeMsg := "Selamat datang member baru"
 		h.sendGroupMention(client, evt.JID, welcomeMsg, []string{join.String()})
 	}
 
 	for _, leave := range evt.Leave {
-		log.Printf("[group] User left: %s from %s", leave.String(), evt.JID.String())
+		slog.Info("User left from", "user", leave.String(), "group", evt.JID.String())
 		goodbyeMsg := "Good Bye"
 		h.sendGroupMention(client, evt.JID, goodbyeMsg, []string{leave.String()})
 	}
@@ -84,7 +84,7 @@ func (h *GroupHandler) HandleTagAll(client *whatsmeow.Client, evt *events.Messag
 func (h *GroupHandler) TagAll(client *whatsmeow.Client, chatJID types.JID, quotedMsg *waProto.Message, stanzaID string, senderJID types.JID, title string) {
 	groupInfo, err := client.GetGroupInfo(context.Background(), chatJID)
 	if err != nil {
-		log.Printf("[tagall] failed to get group info: %v", err)
+		slog.Error("failed to get group info", "error", err)
 		return
 	}
 
@@ -106,7 +106,7 @@ func (h *GroupHandler) TagAll(client *whatsmeow.Client, chatJID types.JID, quote
 	}
 
 	if _, err := client.SendMessage(context.Background(), chatJID, msg); err != nil {
-		log.Printf("[tagall] failed to send: %v", err)
+		slog.Error("failed to send", "error", err)
 	}
 }
 
@@ -129,13 +129,13 @@ func (h *GroupHandler) HandleKick(client *whatsmeow.Client, evt *events.Message,
 		return
 	}
 
-	// preventing kicking self (bot) or admins should be handled by WhatsApp anyway (admins can kick admins unless creator, bot can't kick admins if not admin etc). 
+	// preventing kicking self (bot) or admins should be handled by WhatsApp anyway (admins can kick admins unless creator, bot can't kick admins if not admin etc).
 	// But let's just try.
 
 	// Use "remove" string literal which is standard for UpdateGroupParticipants
 	_, err := client.UpdateGroupParticipants(context.Background(), evt.Info.Chat, []types.JID{targetJID}, whatsmeow.ParticipantChangeRemove)
 	if err != nil {
-		log.Printf("[kick] failed: %v", err)
+		slog.Error("failed", "error", err)
 		utils.ReplyTextDirect(client, evt, "Gagal kick member. Pastikan bot adalah admin.")
 		return
 	}
@@ -152,7 +152,7 @@ func (h *GroupHandler) sendGroupMention(client *whatsmeow.Client, chatJID types.
 	}
 
 	if _, err := client.SendMessage(context.Background(), chatJID, msg); err != nil {
-		log.Printf("[group] failed to send mention message: %v", err)
+		slog.Error("failed to send mention message", "error", err)
 	}
 }
 
@@ -174,7 +174,7 @@ func (h *GroupHandler) HandleWarn(client *whatsmeow.Client, evt *events.Message,
 	// Target detection (Reply > Mention > Args)
 	if evt.Message.GetExtendedTextMessage() != nil {
 		ctxInfo := evt.Message.GetExtendedTextMessage().GetContextInfo()
-		
+
 		// 1. Reply
 		if ctxInfo != nil && ctxInfo.Participant != nil {
 			targetJID, _ = types.ParseJID(*ctxInfo.Participant)
@@ -202,14 +202,14 @@ func (h *GroupHandler) HandleWarn(client *whatsmeow.Client, evt *events.Message,
 	if count >= config.MaxWarningsBeforeKick {
 		// KICK
 		utils.ReplyTextDirect(client, evt, fmt.Sprintf("*PERINGATAN KE-%d (FINAL)*\n@%s otomatis di-kick dari grup.", count, targetJID.User))
-		
+
 		// Give a moment for the message to send before kicking (optional, but good practice)
 		time.Sleep(1 * time.Second)
 
 		// Use "remove" string literal which is standard for UpdateGroupParticipants
 		_, err := client.UpdateGroupParticipants(context.Background(), evt.Info.Chat, []types.JID{targetJID}, whatsmeow.ParticipantChangeRemove)
 		if err != nil {
-			log.Printf("[warn] failed to kick: %v", err)
+			slog.Error("failed to kick", "error", err)
 			utils.ReplyTextDirect(client, evt, "Gagal meng-kick member automatically. Pastikan bot adalah admin.")
 		} else {
 			// Reset warnings on successful kick
@@ -241,7 +241,7 @@ func (h *GroupHandler) HandleResetWarn(client *whatsmeow.Client, evt *events.Mes
 	// Target detection (Reply > Mention > Args)
 	if evt.Message.GetExtendedTextMessage() != nil {
 		ctxInfo := evt.Message.GetExtendedTextMessage().GetContextInfo()
-		
+
 		// 1. Reply
 		if ctxInfo != nil && ctxInfo.Participant != nil {
 			targetJID, _ = types.ParseJID(*ctxInfo.Participant)

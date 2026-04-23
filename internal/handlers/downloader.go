@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"log"
+	"log/slog"
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types/events"
@@ -40,7 +40,7 @@ func (h *DownloaderHandler) HandleVideo(client *whatsmeow.Client, evt *events.Me
 	// Use the smart "DownloadAny" service.
 	result, err := h.ytdlp.DownloadAny(url)
 	if err != nil {
-		log.Printf("[dl] download failed: %v", err)
+		slog.Error("download failed", "error", err)
 		utils.ReplyTextDirect(client, evt, "Gagal mendownload media. Pastikan link publik dan valid.")
 		return
 	}
@@ -53,13 +53,13 @@ func (h *DownloaderHandler) HandleVideo(client *whatsmeow.Client, evt *events.Me
 	// Determine if it's video or image
 	if result.Type == "image" {
 		if err := utils.ReplyImage(client, evt, result.Data, result.Mimetype, caption); err != nil {
-			log.Printf("[dl] failed to send image: %v", err)
+			slog.Error("failed to send image", "error", err)
 			utils.ReplyTextDirect(client, evt, "Gagal mengirim gambar ke WhatsApp.")
 		}
 	} else {
 		// Default to video
 		if err := utils.ReplyVideo(client, evt, result.Data, result.Mimetype, caption); err != nil {
-			log.Printf("[dl] failed to send video: %v", err)
+			slog.Error("failed to send video", "error", err)
 			utils.ReplyTextDirect(client, evt, "Gagal mengirim media ke WhatsApp (mungkin file terlalu besar).")
 		}
 	}
@@ -80,13 +80,13 @@ func (h *DownloaderHandler) HandleAudio(client *whatsmeow.Client, evt *events.Me
 
 	result, err := h.ytdlp.DownloadAudio(url)
 	if err != nil {
-		log.Printf("[mp3] download failed: %v", err)
+		slog.Error("download failed", "error", err)
 		utils.ReplyTextDirect(client, evt, "Gagal mendownload audio.")
 		return
 	}
 
 	if err := utils.ReplyAudio(client, evt, result.Data, result.Mimetype); err != nil {
-		log.Printf("[mp3] failed to send audio: %v", err)
+		slog.Error("failed to send audio", "error", err)
 		utils.ReplyTextDirect(client, evt, "Gagal mengirim audio.")
 	}
 }

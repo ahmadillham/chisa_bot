@@ -1,7 +1,7 @@
 package services
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,7 +20,7 @@ func StartTempCleaner(interval time.Duration, maxAge time.Duration) {
 		for range ticker.C {
 			entries, err := os.ReadDir(tempDir)
 			if err != nil {
-				log.Printf("[cleanup] failed to read temp dir: %v", err)
+				slog.Error("failed to read temp dir", "error", err)
 				continue
 			}
 
@@ -42,14 +42,14 @@ func StartTempCleaner(interval time.Duration, maxAge time.Duration) {
 						if err := os.RemoveAll(fullPath); err == nil {
 							cleanedCount++
 						} else {
-							log.Printf("[cleanup] failed to remove %s: %v", fullPath, err)
+							slog.Error("failed to remove", "val", fullPath, "error", err)
 						}
 					}
 				}
 			}
 
 			if cleanedCount > 0 {
-				log.Printf("[cleanup] Deleted %d old temporary files/directories.", cleanedCount)
+				slog.Info("Deleted %d old temporary files/directories.", "val", cleanedCount)
 			}
 		}
 	}()

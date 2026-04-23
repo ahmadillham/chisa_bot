@@ -6,9 +6,9 @@ import (
 
 func TestParse_ValidCommands(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		wantCmd string
+		name     string
+		input    string
+		wantCmd  string
 		wantArgs []string
 	}{
 		{"dot prefix", ".menu", "menu", nil},

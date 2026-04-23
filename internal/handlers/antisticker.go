@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
 	"go.mau.fi/whatsmeow"
@@ -48,13 +48,12 @@ func (h *AntiStickerHandler) CheckAndRevoke(client *whatsmeow.Client, evt *event
 
 	// 1. Check if the user is banned from sending stickers.
 	if h.userStore.IsBanned(evt.Info.Sender.ToNonAD().String()) {
-		log.Printf("[anti-sticker] Banned user %s sent a sticker in %s — revoking",
-			evt.Info.Sender.User, evt.Info.Chat.String())
+		slog.Info("Banned user sent a sticker in — revoking", "val", evt.Info.Sender.User, "val", evt.Info.Chat.String())
 
 		// Revoke immediately
 		revokeMsg := client.BuildRevoke(evt.Info.Chat, evt.Info.Sender, evt.Info.ID)
 		if _, err := client.SendMessage(context.Background(), evt.Info.Chat, revokeMsg); err != nil {
-			log.Printf("[anti-sticker] failed to revoke user's message: %v", err)
+			slog.Error("failed to revoke user's message", "error", err)
 			return false
 		}
 		return true
@@ -67,8 +66,7 @@ func (h *AntiStickerHandler) CheckAndRevoke(client *whatsmeow.Client, evt *event
 	// Debug: log every sticker hash for troubleshooting.
 	hashHex := hex.EncodeToString(fileSHA256)
 	encHashHex := hex.EncodeToString(fileEncSHA256)
-	log.Printf("[anti-sticker] Sticker received — FileSHA256: %s | FileEncSHA256: %s | from: %s | chat: %s",
-		hashHex, encHashHex, evt.Info.Sender.User, evt.Info.Chat.String())
+	slog.Info("Sticker received — FileSHA256 | FileEncSHA256 | from | chat", "val", hashHex, "val", encHashHex, "val", evt.Info.Sender.User, "val", evt.Info.Chat.String())
 
 	if len(fileSHA256) == 0 {
 		return false
@@ -79,15 +77,14 @@ func (h *AntiStickerHandler) CheckAndRevoke(client *whatsmeow.Client, evt *event
 	}
 
 	// Sticker is banned! Revoke the message.
-	log.Printf("[anti-sticker] Banned sticker detected (hash: %s) from %s in %s — revoking",
-		hashHex[:16]+"...", evt.Info.Sender.User, evt.Info.Chat.String())
+	slog.Info("Banned sticker detected (hash) from in — revoking", "val", hashHex[:16]+"...", "val", evt.Info.Sender.User, "val", evt.Info.Chat.String())
 
 	// Revoke immediately — speed matters for anti-sticker.
 	// BuildRevoke with sender JID (admin revocation of someone else's message).
 	revokeMsg := client.BuildRevoke(evt.Info.Chat, evt.Info.Sender, evt.Info.ID)
 
 	if _, err := client.SendMessage(context.Background(), evt.Info.Chat, revokeMsg); err != nil {
-		log.Printf("[anti-sticker] failed to revoke message: %v", err)
+		slog.Error("failed to revoke message", "error", err)
 		return false
 	}
 

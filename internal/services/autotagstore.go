@@ -3,7 +3,7 @@ package services
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"os"
 )
 
@@ -15,7 +15,7 @@ type AutoTagStore struct {
 // NewAutoTagStore creates a new AutoTagStore and ensures the table exists.
 func NewAutoTagStore(db *sql.DB) *AutoTagStore {
 	store := &AutoTagStore{db: db}
-	
+
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS autotag_prefs (
 			group_jid TEXT PRIMARY KEY,
@@ -23,7 +23,8 @@ func NewAutoTagStore(db *sql.DB) *AutoTagStore {
 		)
 	`)
 	if err != nil {
-		log.Fatalf("Failed to create autotag_prefs table: %v", err)
+		slog.Error("Failed to create autotag_prefs table", "error", err)
+		os.Exit(1)
 	}
 
 	store.migrateLegacyJSON()
@@ -36,7 +37,7 @@ func (s *AutoTagStore) IsDisabled(groupJID string) bool {
 	var disabled bool
 	err := s.db.QueryRow(`SELECT disabled FROM autotag_prefs WHERE group_jid = ?`, groupJID).Scan(&disabled)
 	if err != nil && err != sql.ErrNoRows {
-		log.Printf("[autotagstore] error getting pref: %v", err)
+		slog.Error("error getting pref", "error", err)
 	}
 	// If no rows, default is false (enabled)
 	return disabled
@@ -51,12 +52,12 @@ func (s *AutoTagStore) SetDisabled(groupJID string, disabled bool) {
 			ON CONFLICT(group_jid) DO UPDATE SET disabled = 1
 		`, groupJID)
 		if err != nil {
-			log.Printf("[autotagstore] error setting pref: %v", err)
+			slog.Error("error setting pref", "error", err)
 		}
 	} else {
 		_, err := s.db.Exec(`DELETE FROM autotag_prefs WHERE group_jid = ?`, groupJID)
 		if err != nil {
-			log.Printf("[autotagstore] error removing pref: %v", err)
+			slog.Error("error removing pref", "error", err)
 		}
 	}
 }
@@ -69,7 +70,7 @@ func (s *AutoTagStore) migrateLegacyJSON() {
 		return
 	}
 
-	log.Println("[autotagstore] Running legacy JSON migration...")
+	slog.Info("[autotagstore] Running legacy JSON migration...")
 	var disabledGroups map[string]bool
 	if err := json.Unmarshal(data, &disabledGroups); err == nil {
 		for groupJID, disabled := range disabledGroups {
