@@ -12,6 +12,8 @@ import (
 
 	"chisa_bot/internal/services"
 	"chisa_bot/pkg/utils"
+
+	waProto "go.mau.fi/whatsmeow/binary/proto"
 )
 
 // SystemHandler handles system information commands.
@@ -150,36 +152,57 @@ func formatBytes(bytes uint64) string {
 	return fmt.Sprintf("%.2f MB", float64(bytes)/float64(MB))
 }
 
-// HandleRecover extracts and forwards a deeply nested quoted message (i.e. to retrieve deleted messages).
+// HandleRecover extracts and forwards a view-once or deleted message.
 func (h *SystemHandler) HandleRecover(client *whatsmeow.Client, evt *events.Message) {
-	var bStanzaId string
-	if ext := evt.Message.GetExtendedTextMessage(); ext != nil && ext.GetContextInfo() != nil {
-		bStanzaId = ext.GetContextInfo().GetStanzaID()
-	}
-
-	if bStanzaId == "" {
+	ctxInfo := evt.Message.GetExtendedTextMessage().GetContextInfo()
+	if ctxInfo == nil {
 		utils.ReplyTextDirect(client, evt, "Gagal mendapatkan ID pesan yang di-reply.")
 		return
 	}
 
-	fullB, err := h.msgCache.Get(bStanzaId)
-	if err != nil {
-		utils.ReplyTextDirect(client, evt, "Pesan tidak ada di riwayat bot (Mungkin bot sedang mati saat pesan tersebut dikirim, atau sudah kadaluwarsa >24 jam).")
-		return
+	bStanzaId := ctxInfo.GetStanzaID()
+	quoted := ctxInfo.GetQuotedMessage()
+	var targetMsg *waProto.Message
+
+	// Fallback mechanism:
+	// 1. Check if the message is in the cache (gives us the raw original message)
+	cachedB, err := h.msgCache.Get(bStanzaId)
+
+	// Determine what the user wants to read
+	if quoted != nil && utils.IsViewOnceMessage(quoted) {
+		// User is replying directly to a View Once message
+		targetMsg = quoted
+		if err == nil {
+			targetMsg = cachedB // Prefer cached for completeness, though quoted is usually enough
+		}
+	} else if err == nil {
+		// If B is in cache, see if it's a text reply to a deleted message A
+		if nestedCtx := cachedB.GetExtendedTextMessage().GetContextInfo(); nestedCtx != nil {
+			aStanzaId := nestedCtx.GetStanzaID()
+			if aStanzaId != "" {
+				cachedA, errA := h.msgCache.Get(aStanzaId)
+				if errA == nil {
+					targetMsg = cachedA // Target is the grandparent (deleted message A)
+				}
+			}
+		}
+		// If targetMsg is still nil, maybe user wants to recover B itself (if B was deleted)
+		if targetMsg == nil {
+			targetMsg = cachedB
+		}
+	} else {
+		// Not a View Once, and not in cache. But we have quoted message.
+		targetMsg = quoted
 	}
 
-	// Extract the grandparent quoted message (the one that got deleted) from the unstripped fullB
-	nestedMsg := utils.GetQuotedMessage(&events.Message{Message: fullB})
-	if nestedMsg == nil {
-		utils.ReplyTextDirect(client, evt, "Pesan yang di-reply ternyata tidak membalas (reply) pesan orang lain sama sekali.")
+	if targetMsg == nil {
+		utils.ReplyTextDirect(client, evt, "Pesan tidak ada di riwayat bot (Mungkin bot sedang mati saat pesan tersebut dikirim, atau sudah kadaluwarsa).")
 		return
 	}
 
 	// Case 1: Pure text
-	if !utils.IsMediaMessage(nestedMsg) {
-		// Wrap it in events.Message to reuse GetTextFromMessage
-		fakeEvt := &events.Message{Message: nestedMsg}
-		text := utils.GetTextFromMessage(fakeEvt)
+	if !utils.IsMediaMessage(targetMsg) {
+		text := utils.GetTextFromMessage(&events.Message{Message: targetMsg})
 		if text == "" {
 			utils.ReplyTextDirect(client, evt, "Pesan kosong atau format tidak didukung.")
 			return
@@ -189,24 +212,24 @@ func (h *SystemHandler) HandleRecover(client *whatsmeow.Client, evt *events.Mess
 	}
 
 	// Case 2: Media
-	data, err := utils.DownloadMediaFromMessage(client, nestedMsg)
+	data, err := utils.DownloadMediaFromMessage(client, targetMsg)
 	if err != nil {
-		utils.ReplyTextDirect(client, evt, "Gagal mengunduh media dari pesan tersebut (mungkin file asli sudah kedaluwarsa dari server cache WhatsApp).")
+		utils.ReplyTextDirect(client, evt, "Gagal mengunduh media dari pesan tersebut (mungkin file asli sudah kedaluwarsa dari server WhatsApp).")
 		return
 	}
 
-	nestedMsg = utils.UnwrapViewOnce(nestedMsg)
+	targetMsg = utils.UnwrapViewOnce(targetMsg)
 
-	if img := nestedMsg.GetImageMessage(); img != nil {
+	if img := targetMsg.GetImageMessage(); img != nil {
 		err = utils.ReplyImage(client, evt, data, img.GetMimetype(), img.GetCaption())
-	} else if vid := nestedMsg.GetVideoMessage(); vid != nil {
+	} else if vid := targetMsg.GetVideoMessage(); vid != nil {
 		err = utils.ReplyVideo(client, evt, data, vid.GetMimetype(), vid.GetCaption())
-	} else if stk := nestedMsg.GetStickerMessage(); stk != nil {
+	} else if stk := targetMsg.GetStickerMessage(); stk != nil {
 		err = utils.ReplySticker(client, evt, data, stk.GetIsAnimated())
-	} else if aud := nestedMsg.GetAudioMessage(); aud != nil {
+	} else if aud := targetMsg.GetAudioMessage(); aud != nil {
 		err = utils.ReplyAudio(client, evt, data, aud.GetMimetype())
-	} else if doc := nestedMsg.GetDocumentMessage(); doc != nil {
-		utils.ReplyTextDirect(client, evt, "Fitur pengambilan dokumen belum didukung secara utuh.")
+	} else {
+		utils.ReplyTextDirect(client, evt, "Format media belum didukung secara utuh.")
 		return
 	}
 

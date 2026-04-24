@@ -167,6 +167,26 @@ func wrapText(text string, maxChars int) string {
 	return strings.Join(lines, "\n")
 }
 
+// calculateFontSize calculates the optimal font size based on the longest line.
+func calculateFontSize(wrappedText string) int {
+	maxLen := 0
+	for _, line := range strings.Split(wrappedText, "\n") {
+		l := len([]rune(line))
+		if l > maxLen {
+			maxLen = l
+		}
+	}
+
+	fontSize := 72
+	if maxLen > 11 {
+		fontSize = int(float64(72) * (11.0 / float64(maxLen)))
+	}
+	if fontSize < 20 {
+		fontSize = 20
+	}
+	return fontSize
+}
+
 // AddTextToWebP overlays meme-style bottom text onto a WebP sticker.
 // It supports both static and animated inputs (GIF/Video/WebP).
 func (f *FFmpegService) AddTextToWebP(inputData []byte, text string, ext string, isAnimated bool) ([]byte, error) {
@@ -211,13 +231,25 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string, ext string,
 	fontPath = strings.ReplaceAll(fontPath, `:`, `\:`)
 
 	if topText != "" {
-		safeTop := escapeFfmpegText(wrapText(topText, 13))
-		drawFilter += fmt.Sprintf(",drawtext=fontfile='%s':text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=6:x=(w-text_w)/2:y=20:line_spacing=5:text_align=C", fontPath, safeTop)
+		wrappedTop := wrapText(topText, 15)
+		fontSizeTop := calculateFontSize(wrappedTop)
+		safeTop := escapeFfmpegText(wrappedTop)
+		borderW := fontSizeTop / 12
+		if borderW < 2 {
+			borderW = 2
+		}
+		drawFilter += fmt.Sprintf(",drawtext=fontfile='%s':text='%s':fontcolor=white:fontsize=%d:bordercolor=black:borderw=%d:x=(w-text_w)/2:y=20:line_spacing=5:text_align=C", fontPath, safeTop, fontSizeTop, borderW)
 	}
 
 	if bottomText != "" {
-		safeBottom := escapeFfmpegText(wrapText(bottomText, 13))
-		drawFilter += fmt.Sprintf(",drawtext=fontfile='%s':text='%s':fontcolor=white:fontsize=72:bordercolor=black:borderw=6:x=(w-text_w)/2:y=h-text_h-20:line_spacing=5:text_align=C", fontPath, safeBottom)
+		wrappedBottom := wrapText(bottomText, 15)
+		fontSizeBottom := calculateFontSize(wrappedBottom)
+		safeBottom := escapeFfmpegText(wrappedBottom)
+		borderW := fontSizeBottom / 12
+		if borderW < 2 {
+			borderW = 2
+		}
+		drawFilter += fmt.Sprintf(",drawtext=fontfile='%s':text='%s':fontcolor=white:fontsize=%d:bordercolor=black:borderw=%d:x=(w-text_w)/2:y=h-text_h-20:line_spacing=5:text_align=C", fontPath, safeBottom, fontSizeBottom, borderW)
 	}
 
 	ffmpegArgs := []string{"-i", inputPath}
