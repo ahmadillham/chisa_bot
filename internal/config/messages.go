@@ -13,17 +13,7 @@ const (
 • .mp3 <link> 
 
 • .tagall
-• .autotag
-• .warn 
-• .resetwarn 
 • .kick 
-
-• .bansticker 
-• .unbansticker 
-• .liststicker 
-• .banuser
-• .unbanuser 
-• .listuser 
 
 • .read 
 • .stat 

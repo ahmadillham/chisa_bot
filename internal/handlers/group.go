@@ -2,9 +2,7 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
-	"time"
 
 	"go.mau.fi/whatsmeow"
 	waProto "go.mau.fi/whatsmeow/binary/proto"
@@ -12,23 +10,16 @@ import (
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
 
-	"chisa_bot/internal/config"
-	"chisa_bot/internal/services"
 	"chisa_bot/pkg/utils"
 )
 
 // GroupHandler handles group management features.
 type GroupHandler struct {
-	warnStore    *services.WarnStore
-	autoTagStore *services.AutoTagStore
 }
 
 // NewGroupHandler creates a new GroupHandler.
-func NewGroupHandler(warnStore *services.WarnStore, autoTagStore *services.AutoTagStore) *GroupHandler {
-	return &GroupHandler{
-		warnStore:    warnStore,
-		autoTagStore: autoTagStore,
-	}
+func NewGroupHandler() *GroupHandler {
+	return &GroupHandler{}
 }
 
 // IsAdmin checks if the user is an admin in the group.
@@ -156,141 +147,4 @@ func (h *GroupHandler) sendGroupMention(client *whatsmeow.Client, chatJID types.
 	}
 }
 
-// HandleWarn warns a user. 3 warnings = kick.
-func (h *GroupHandler) HandleWarn(client *whatsmeow.Client, evt *events.Message, args []string) {
-	if !evt.Info.IsGroup {
-		utils.ReplyTextDirect(client, evt, config.MsgOnlyGroup)
-		return
-	}
 
-	if !h.IsAdmin(client, evt.Info.Chat, evt.Info.Sender) {
-		utils.ReplyTextDirect(client, evt, config.MsgOnlyAdmin)
-		return
-	}
-
-	var targetJID types.JID
-	found := false
-
-	// Target detection (Reply > Mention > Args)
-	if evt.Message.GetExtendedTextMessage() != nil {
-		ctxInfo := evt.Message.GetExtendedTextMessage().GetContextInfo()
-
-		// 1. Reply
-		if ctxInfo != nil && ctxInfo.Participant != nil {
-			targetJID, _ = types.ParseJID(*ctxInfo.Participant)
-			found = true
-		} else {
-			// 2. Mention
-			mentionList := ctxInfo.GetMentionedJID()
-			if len(mentionList) > 0 {
-				targetJID, _ = types.ParseJID(mentionList[0])
-				found = true
-			}
-		}
-	}
-
-	if !found {
-		// 3. Try parsing args if phone number is provided (advanced usage, optional but good)
-		// For now simple usage as requested: Reply or Tag.
-		utils.ReplyTextDirect(client, evt, "Reply pesan atau tag member yang ingin di-warn.\nContoh: .warn @member")
-		return
-	}
-
-	// Increment warning
-	count := h.warnStore.AddWarning(evt.Info.Chat.String(), targetJID.String())
-
-	if count >= config.MaxWarningsBeforeKick {
-		// KICK
-		utils.ReplyTextDirect(client, evt, fmt.Sprintf("*PERINGATAN KE-%d (FINAL)*\n@%s otomatis di-kick dari grup.", count, targetJID.User))
-
-		// Give a moment for the message to send before kicking (optional, but good practice)
-		time.Sleep(1 * time.Second)
-
-		// Use "remove" string literal which is standard for UpdateGroupParticipants
-		_, err := client.UpdateGroupParticipants(context.Background(), evt.Info.Chat, []types.JID{targetJID}, whatsmeow.ParticipantChangeRemove)
-		if err != nil {
-			slog.Error("failed to kick", "error", err)
-			utils.ReplyTextDirect(client, evt, "Gagal meng-kick member automatically. Pastikan bot adalah admin.")
-		} else {
-			// Reset warnings on successful kick
-			h.warnStore.ResetWarning(evt.Info.Chat.String(), targetJID.String())
-		}
-	} else {
-		// WARNING 1 or 2
-		msg := fmt.Sprintf("*PERINGATAN KE-%d*\n\n@%s, tolong ikuti aturan grup.\nPeringatan ke-%d = Kick.", count, targetJID.User, config.MaxWarningsBeforeKick)
-		// Send as mention
-		h.sendGroupMention(client, evt.Info.Chat, msg, []string{targetJID.String()})
-	}
-}
-
-// HandleResetWarn resets the warning count for a user (admin only).
-func (h *GroupHandler) HandleResetWarn(client *whatsmeow.Client, evt *events.Message, args []string) {
-	if !evt.Info.IsGroup {
-		utils.ReplyTextDirect(client, evt, config.MsgOnlyGroup)
-		return
-	}
-
-	if !h.IsAdmin(client, evt.Info.Chat, evt.Info.Sender) {
-		utils.ReplyTextDirect(client, evt, config.MsgOnlyAdmin)
-		return
-	}
-
-	var targetJID types.JID
-	found := false
-
-	// Target detection (Reply > Mention > Args)
-	if evt.Message.GetExtendedTextMessage() != nil {
-		ctxInfo := evt.Message.GetExtendedTextMessage().GetContextInfo()
-
-		// 1. Reply
-		if ctxInfo != nil && ctxInfo.Participant != nil {
-			targetJID, _ = types.ParseJID(*ctxInfo.Participant)
-			found = true
-		} else {
-			// 2. Mention
-			mentionList := ctxInfo.GetMentionedJID()
-			if len(mentionList) > 0 {
-				targetJID, _ = types.ParseJID(mentionList[0])
-				found = true
-			}
-		}
-	}
-
-	if !found {
-		utils.ReplyTextDirect(client, evt, "Reply pesan atau tag member yang ingin di-reset warning-nya.\nContoh: .resetwarn @member")
-		return
-	}
-
-	h.warnStore.ResetWarning(evt.Info.Chat.String(), targetJID.String())
-	utils.ReplyTextDirect(client, evt, fmt.Sprintf("Warning untuk @%s telah di-reset menjadi 0.", targetJID.User))
-}
-
-// HandleAutoTag toggles the auto-tag feature for a group (admin only).
-func (h *GroupHandler) HandleAutoTag(client *whatsmeow.Client, evt *events.Message, args []string) {
-	if !evt.Info.IsGroup {
-		utils.ReplyTextDirect(client, evt, "Perintah ini hanya bisa digunakan di grup.")
-		return
-	}
-
-	if !h.IsAdmin(client, evt.Info.Chat, evt.Info.Sender) {
-		utils.ReplyTextDirect(client, evt, "Hanya admin yang bisa menggunakan perintah ini.")
-		return
-	}
-
-	if len(args) == 0 {
-		utils.ReplyTextDirect(client, evt, "Gunakan format:\n.autotag on\n.autotag off")
-		return
-	}
-
-	groupSt := evt.Info.Chat.String()
-	switch args[0] {
-	case "on":
-		h.autoTagStore.SetDisabled(groupSt, false)
-		utils.ReplyTextDirect(client, evt, "Auto-tag TikTok berhasil diaktifkan untuk grup ini.")
-	case "off":
-		h.autoTagStore.SetDisabled(groupSt, true)
-		utils.ReplyTextDirect(client, evt, "Auto-tag TikTok berhasil dinonaktifkan untuk grup ini.")
-	default:
-		utils.ReplyTextDirect(client, evt, "Parameter tidak valid. Gunakan 'on' atau 'off'.")
-	}
-}

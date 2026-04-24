@@ -20,7 +20,6 @@ var (
 	MaxFileSizeMB            = 100
 	MaxAudioSizeMB           = 50
 	MaxVideoStickerSec       = 8
-	MaxWarningsBeforeKick    = 3
 	MaxConcurrentMediaTasks  = 4
 )
 
@@ -91,11 +90,7 @@ func Load() {
 			MaxVideoStickerSec = val
 		}
 	}
-	if v := os.Getenv("MAX_WARNINGS_BEFORE_KICK"); v != "" {
-		if val, err := strconv.Atoi(v); err == nil {
-			MaxWarningsBeforeKick = val
-		}
-	}
+
 	if v := os.Getenv("MAX_CONCURRENT_MEDIA_TASKS"); v != "" {
 		if val, err := strconv.Atoi(v); err == nil {
 			MaxConcurrentMediaTasks = val

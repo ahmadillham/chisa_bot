@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -59,20 +58,17 @@ func main() {
 	}
 
 	// Initialize handlers using the bot SQLite DB.
-	warnStore := services.NewWarnStore(botDB)
-	autoTagStore := services.NewAutoTagStore(botDB)
-	bannedStickerStore := services.NewBannedStickerStore(botDB, nil)
-	bannedStickerUserStore := services.NewBannedStickerUserStore(botDB)
+
 	msgCache := services.NewMessageCacheStore(botDB)
 
 	pool := services.NewWorkerPool(config.MaxConcurrentMediaTasks)
 
 	mediaHandler := handlers.NewMediaHandler(pool)
 	dlHandler := handlers.NewDownloaderHandler(pool)
-	groupHandler := handlers.NewGroupHandler(warnStore, autoTagStore)
+	groupHandler := handlers.NewGroupHandler()
 	menuHandler := handlers.NewMenuHandler()
 	sysHandler := handlers.NewSystemHandler(msgCache)
-	antiStickerHandler := handlers.NewAntiStickerHandler(bannedStickerStore, bannedStickerUserStore, groupHandler)
+
 	limiter := ratelimit.New(
 		time.Duration(config.RateLimitUserCooldownSec)*time.Second,
 		config.RateLimitChatMax,
@@ -97,20 +93,7 @@ func main() {
 	registry.Register("mp3", dlHandler.HandleAudio)
 
 	registry.Register("tagall", wrap(groupHandler.HandleTagAll))
-	registry.Register("warn", groupHandler.HandleWarn)
-	registry.Register("resetwarn", groupHandler.HandleResetWarn)
 	registry.Register("kick", groupHandler.HandleKick)
-	registry.Register("autotag", groupHandler.HandleAutoTag)
-
-	registry.Register("bansticker", antiStickerHandler.HandleBanSticker)
-	registry.Register("ban", antiStickerHandler.HandleBanSticker) // alias
-	registry.Register("unbansticker", antiStickerHandler.HandleUnbanSticker)
-	registry.Register("unban", antiStickerHandler.HandleUnbanSticker) // alias
-	registry.Register("liststicker", antiStickerHandler.HandleListBanned)
-
-	registry.Register("banuser", antiStickerHandler.HandleBanStickerUser)
-	registry.Register("unbanuser", antiStickerHandler.HandleUnbanStickerUser)
-	registry.Register("listuser", antiStickerHandler.HandleListBannedUsers)
 
 	registry.Register("menu", wrap(menuHandler.HandleMenu))
 	registry.Register("stat", wrap(sysHandler.HandleStats))
@@ -131,7 +114,7 @@ func main() {
 						slog.Error("PANIC RECOVERED", "panic", r)
 					}
 				}()
-				handleMessage(client, evt, registry, groupHandler, antiStickerHandler, limiter, autoTagStore)
+				handleMessage(client, evt, registry, limiter)
 			}()
 
 		case *events.GroupInfo:
@@ -216,15 +199,8 @@ func handleMessage(
 	client *whatsmeow.Client,
 	evt *events.Message,
 	registry *handlers.Registry,
-	groupHandler *handlers.GroupHandler,
-	antiStickerHandler *handlers.AntiStickerHandler,
 	limiter *ratelimit.Limiter,
-	autoTagStore *services.AutoTagStore,
 ) {
-	// Anti-sticker check: revoke banned stickers BEFORE anything else.
-	if antiStickerHandler.CheckAndRevoke(client, evt) {
-		return // Message was revoked, no further processing needed.
-	}
 
 	// Extract text from various message types.
 	text := utils.GetTextFromMessage(evt)
@@ -257,11 +233,5 @@ func handleMessage(
 		return
 	}
 
-	// 2. If not a command, check for TikTok links in group chats.
-	if evt.Info.IsGroup && (strings.Contains(text, "tiktok.com/") || strings.Contains(text, "vm.tiktok.com/")) {
-		if !autoTagStore.IsDisabled(evt.Info.Chat.String()) {
-			slog.Info("TikTok link detected (Auto-Tag)", "chat", evt.Info.Chat.String())
-			groupHandler.TagAll(client, evt.Info.Chat, evt.Message, evt.Info.ID, evt.Info.Sender, text)
-		}
-	}
+
 }

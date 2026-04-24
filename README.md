@@ -12,11 +12,8 @@ A modular, high-performance WhatsApp bot built with Go and [whatsmeow](https://g
 | **Sticker to Image** | `.toimg` — WebP sticker → PNG / View Once retrieval |
 | **Video Downloader** | `.dl <url>` — Download TikTok/IG/YouTube Video     |
 | **Audio Downloader** | `.mp3 <url>` — Download YouTube Audio              |
-| **Group Admin**      | `.tagall`, `.warn`, `.resetwarn`, `.kick`, `.autotag` |
-| **Anti-Sticker**     | `.bansticker`, `.unbansticker`, `.liststicker`     |
-| **User Ban**         | `.banuser`, `.unbanuser`, `.listuser`              |
+| **Group Admin**      | `.tagall`, `.kick`                                 |
 | **Welcome/Goodbye**  | Auto-message on group join/leave                   |
-| **Auto-Tag**         | Auto-tag everyone on TikTok link detection         |
 | **System**           | `.menu`, `.stat`                                   |
 
 **Prefixes:** `.` `!` `/` (all work interchangeably)
@@ -98,21 +95,17 @@ chisa_bot/
 │   │   └── messages.go          # Bot message templates
 │   ├── router/router.go         # Multi-prefix command parser
 │   ├── handlers/
-│   │   ├── antisticker.go       # .bansticker, .banuser, etc.
 │   │   ├── downloader.go        # .dl, .mp3
-│   │   ├── group.go             # Welcome/Goodbye, .tagall, .warn, .kick
+│   │   ├── group.go             # Welcome/Goodbye, .tagall, .kick
 │   │   ├── media.go             # .s, .toimg, .ts, .brat
 │   │   ├── menu.go              # .menu
 │   │   ├── registry.go          # Command routing mapping
 │   │   └── system.go            # .stat
 │   └── services/
-│       ├── autotagstore.go      # Auto-tag preference persistence
-│       ├── bannedstickers.go    # Banned sticker hash management
-│       ├── bannedstickerusers.go# Banned sticker user management
 │       ├── cleanup.go           # Temp files auto-cleaner
 │       ├── downloader.go        # yt-dlp wrapper with URL validation
 │       ├── ffmpeg.go            # FFmpeg & ImageMagick wrapper
-│       └── warnstore.go         # Warning count persistence
+│       └── messagecache.go      # Message caching for anti-delete
 ├── pkg/
 │   ├── ratelimit/ratelimit.go   # Per-user/per-chat rate limiter
 │   └── utils/
@@ -151,7 +144,6 @@ RATE_LIMIT_CHAT_WINDOW_SEC=60
 MAX_FILE_SIZE_MB=100
 MAX_AUDIO_SIZE_MB=50
 MAX_VIDEO_STICKER_SEC=8
-MAX_WARNINGS_BEFORE_KICK=3
 MAX_CONCURRENT_MEDIA_TASKS=4
 ```
 
