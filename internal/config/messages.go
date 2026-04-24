@@ -15,6 +15,10 @@ const (
 • .tagall
 • .kick 
 
+• .banuser
+• .unbanuser 
+• .listuser 
+
 • .read 
 • .stat 
 • .menu `

@@ -58,7 +58,7 @@ func main() {
 	}
 
 	// Initialize handlers using the bot SQLite DB.
-
+	bannedStickerUserStore := services.NewBannedStickerUserStore(botDB)
 	msgCache := services.NewMessageCacheStore(botDB)
 
 	pool := services.NewWorkerPool(config.MaxConcurrentMediaTasks)
@@ -68,6 +68,7 @@ func main() {
 	groupHandler := handlers.NewGroupHandler()
 	menuHandler := handlers.NewMenuHandler()
 	sysHandler := handlers.NewSystemHandler(msgCache)
+	antiStickerHandler := handlers.NewAntiStickerHandler(bannedStickerUserStore, groupHandler)
 
 	limiter := ratelimit.New(
 		time.Duration(config.RateLimitUserCooldownSec)*time.Second,
@@ -95,6 +96,10 @@ func main() {
 	registry.Register("tagall", wrap(groupHandler.HandleTagAll))
 	registry.Register("kick", groupHandler.HandleKick)
 
+	registry.Register("banuser", antiStickerHandler.HandleBanStickerUser)
+	registry.Register("unbanuser", antiStickerHandler.HandleUnbanStickerUser)
+	registry.Register("listuser", antiStickerHandler.HandleListBannedUsers)
+
 	registry.Register("menu", wrap(menuHandler.HandleMenu))
 	registry.Register("stat", wrap(sysHandler.HandleStats))
 	registry.Register("read", wrap(sysHandler.HandleRecover))
@@ -114,7 +119,7 @@ func main() {
 						slog.Error("PANIC RECOVERED", "panic", r)
 					}
 				}()
-				handleMessage(client, evt, registry, limiter)
+				handleMessage(client, evt, registry, antiStickerHandler, limiter)
 			}()
 
 		case *events.GroupInfo:
@@ -199,8 +204,13 @@ func handleMessage(
 	client *whatsmeow.Client,
 	evt *events.Message,
 	registry *handlers.Registry,
+	antiStickerHandler *handlers.AntiStickerHandler,
 	limiter *ratelimit.Limiter,
 ) {
+	// Anti-sticker check: revoke stickers from banned users BEFORE anything else.
+	if antiStickerHandler.CheckAndRevoke(client, evt) {
+		return // Message was revoked, no further processing needed.
+	}
 
 	// Extract text from various message types.
 	text := utils.GetTextFromMessage(evt)

@@ -13,6 +13,7 @@ A modular, high-performance WhatsApp bot built with Go and [whatsmeow](https://g
 | **Video Downloader** | `.dl <url>` — Download TikTok/IG/YouTube Video     |
 | **Audio Downloader** | `.mp3 <url>` — Download YouTube Audio              |
 | **Group Admin**      | `.tagall`, `.kick`                                 |
+| **User Ban**         | `.banuser`, `.unbanuser`, `.listuser`              |
 | **Welcome/Goodbye**  | Auto-message on group join/leave                   |
 | **System**           | `.menu`, `.stat`                                   |
 
@@ -95,6 +96,7 @@ chisa_bot/
 │   │   └── messages.go          # Bot message templates
 │   ├── router/router.go         # Multi-prefix command parser
 │   ├── handlers/
+│   │   ├── antisticker.go       # .banuser, etc.
 │   │   ├── downloader.go        # .dl, .mp3
 │   │   ├── group.go             # Welcome/Goodbye, .tagall, .kick
 │   │   ├── media.go             # .s, .toimg, .ts, .brat
@@ -102,6 +104,7 @@ chisa_bot/
 │   │   ├── registry.go          # Command routing mapping
 │   │   └── system.go            # .stat
 │   └── services/
+│       ├── bannedstickerusers.go# Banned sticker user management
 │       ├── cleanup.go           # Temp files auto-cleaner
 │       ├── downloader.go        # yt-dlp wrapper with URL validation
 │       ├── ffmpeg.go            # FFmpeg & ImageMagick wrapper
