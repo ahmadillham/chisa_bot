@@ -178,8 +178,8 @@ func calculateFontSize(wrappedText string) int {
 	}
 
 	fontSize := 72
-	if maxLen > 11 {
-		fontSize = int(float64(72) * (11.0 / float64(maxLen)))
+	if maxLen > 10 {
+		fontSize = int(float64(72) * (10.0 / float64(maxLen)))
 	}
 	if fontSize < 20 {
 		fontSize = 20
