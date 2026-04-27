@@ -307,7 +307,7 @@ func (h *MediaHandler) HandleBrat(client *whatsmeow.Client, evt *events.Message,
 	defer h.pool.Release()
 
 	if len(args) == 0 {
-		utils.ReplyTextDirect(client, evt, "Penggunaan: .brat <teks>\nContoh: .brat hello saya ilham")
+		utils.ReplyTextDirect(client, evt, "Penggunaan: .brat <teks>")
 		return
 	}
 
