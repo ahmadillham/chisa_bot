@@ -242,6 +242,4 @@ func handleMessage(
 	if evt.Info.IsFromMe {
 		return
 	}
-
-
 }

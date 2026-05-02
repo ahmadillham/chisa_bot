@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"context"
 	"log/slog"
+	"time"
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types/events"
@@ -26,7 +28,12 @@ func NewDownloaderHandler(pool *services.WorkerPool) *DownloaderHandler {
 
 // HandleVideo downloads video from any supported platform (IG, TikTok, FB, YouTube, etc).
 func (h *DownloaderHandler) HandleVideo(client *whatsmeow.Client, evt *events.Message, args []string) {
-	h.pool.Acquire()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := h.pool.AcquireContext(ctx); err != nil {
+		utils.ReplyTextDirect(client, evt, "Bot sedang sibuk, coba lagi nanti.")
+		return
+	}
 	defer h.pool.Release()
 
 	if len(args) == 0 {
@@ -67,7 +74,12 @@ func (h *DownloaderHandler) HandleVideo(client *whatsmeow.Client, evt *events.Me
 
 // HandleAudio downloads audio (MP3) from YouTube/TikTok/etc.
 func (h *DownloaderHandler) HandleAudio(client *whatsmeow.Client, evt *events.Message, args []string) {
-	h.pool.Acquire()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := h.pool.AcquireContext(ctx); err != nil {
+		utils.ReplyTextDirect(client, evt, "Bot sedang sibuk, coba lagi nanti.")
+		return
+	}
 	defer h.pool.Release()
 
 	if len(args) == 0 {

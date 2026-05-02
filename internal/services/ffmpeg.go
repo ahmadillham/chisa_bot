@@ -116,6 +116,7 @@ func (f *FFmpegService) VideoToWebP(inputData []byte, ext string) ([]byte, error
 }
 
 // WebPToImage converts a WebP file to PNG.
+// Handles both static and animated WebP, including VP8L lossless format.
 func (f *FFmpegService) WebPToImage(inputData []byte) ([]byte, error) {
 	tmpDir, err := os.MkdirTemp("", "chisabot-*")
 	if err != nil {
@@ -133,19 +134,44 @@ func (f *FFmpegService) WebPToImage(inputData []byte) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	// Primary attempt: explicit codec and pixel format for maximum compatibility.
+	// -pix_fmt rgba handles alpha channels from stickers.
+	// -vcodec png ensures PNG output regardless of input quirks.
 	cmd := exec.CommandContext(ctx, "ffmpeg",
 		"-i", inputPath,
 		"-frames:v", "1",
+		"-pix_fmt", "rgba",
+		"-vcodec", "png",
 		"-y", outputPath,
 	)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("ffmpeg webp->png failed: %w\nOutput: %s", err, string(output))
+		// Fallback: some animated/extended WebP files need libwebp decoder hint.
+		// Try again with explicit decoder and simpler pixel format.
+		slog.Warn("WebP primary decode failed, trying fallback", "error", string(output))
+
+		ctx2, cancel2 := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel2()
+
+		cmd2 := exec.CommandContext(ctx2, "ffmpeg",
+			"-c:v", "libwebp",
+			"-i", inputPath,
+			"-frames:v", "1",
+			"-pix_fmt", "rgb24",
+			"-vcodec", "png",
+			"-y", outputPath,
+		)
+
+		output2, err2 := cmd2.CombinedOutput()
+		if err2 != nil {
+			return nil, fmt.Errorf("ffmpeg webp->png failed (both attempts):\nPrimary: %s\nFallback: %s", string(output), string(output2))
+		}
 	}
 
 	return os.ReadFile(outputPath)
 }
+
 
 // wrapText inserts line breaks so text fits approximately within maxChars per line.
 func wrapText(text string, maxChars int) string {

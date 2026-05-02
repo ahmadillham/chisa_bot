@@ -56,9 +56,30 @@ func findYtDlp() string {
 	return "yt-dlp" // fallback, hope it's in PATH
 }
 
-// ytDlpInfo holds metadata from yt-dlp --dump-json.
+// ytDlpInfo holds metadata from yt-dlp --write-info-json.
 type ytDlpInfo struct {
 	Title string `json:"title"`
+}
+
+// readInfoJSON reads the title from the .info.json file written by yt-dlp's --write-info-json flag.
+func readInfoJSON(tmpDir string) string {
+	entries, err := os.ReadDir(tmpDir)
+	if err != nil {
+		return "Downloaded Media"
+	}
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".info.json") {
+			data, err := os.ReadFile(filepath.Join(tmpDir, e.Name()))
+			if err != nil {
+				continue
+			}
+			var info ytDlpInfo
+			if err := json.Unmarshal(data, &info); err == nil && info.Title != "" {
+				return info.Title
+			}
+		}
+	}
+	return "Downloaded Media"
 }
 
 // DownloadAny automatically detects the platform and downloads the best video.
@@ -101,6 +122,7 @@ func (s *YtDlpService) DownloadInstagram(sourceURL string) (*MediaResult, error)
 		"--max-filesize", maxSize,
 		"--no-playlist",
 		"--no-warnings",
+		"--write-info-json",
 		"--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
 		"-o", outputTemplate,
 		sourceURL,
@@ -122,13 +144,27 @@ func (s *YtDlpService) DownloadInstagram(sourceURL string) (*MediaResult, error)
 		return nil, fmt.Errorf("ig download failed: %w\nOutput: %s", err, outputStr)
 	}
 
-	// Find the downloaded file
+	// Find the downloaded media file (not .info.json)
 	files, err := os.ReadDir(tmpDir)
 	if err != nil || len(files) == 0 {
 		return nil, fmt.Errorf("no file downloaded")
 	}
 
-	filename := files[0].Name()
+	// Get title from info JSON (single pass, no extra yt-dlp call)
+	title := readInfoJSON(tmpDir)
+
+	// Find the actual media file
+	var filename string
+	for _, f := range files {
+		if !strings.HasSuffix(f.Name(), ".info.json") {
+			filename = f.Name()
+			break
+		}
+	}
+	if filename == "" {
+		return nil, fmt.Errorf("no media file downloaded")
+	}
+
 	filePath := filepath.Join(tmpDir, filename)
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -154,8 +190,6 @@ func (s *YtDlpService) DownloadInstagram(sourceURL string) (*MediaResult, error)
 		mimetype = "image/webp"
 		msgType = "image"
 	}
-
-	title := s.getTitle(sourceURL)
 
 	return &MediaResult{
 		Title:    title,
@@ -214,6 +248,11 @@ func (s *YtDlpService) scrapeIGImage(url string) (*MediaResult, error) {
 
 	imageURL = strings.ReplaceAll(imageURL, "&amp;", "&")
 
+	// Validate scraped URL before fetching
+	if !strings.HasPrefix(imageURL, "https://") {
+		return nil, fmt.Errorf("scraped image URL is not HTTPS: %s", imageURL)
+	}
+
 	// Download the image
 	imgResp, err := http.Get(imageURL)
 	if err != nil {
@@ -259,6 +298,7 @@ func (s *YtDlpService) downloadGeneric(sourceURL string) (*MediaResult, error) {
 		"--max-filesize", maxSize,
 		"--no-playlist",
 		"--no-warnings",
+		"--write-info-json",
 		"-o", outputPath,
 		sourceURL,
 	}
@@ -277,7 +317,8 @@ func (s *YtDlpService) downloadGeneric(sourceURL string) (*MediaResult, error) {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
-	title := s.getTitle(sourceURL)
+	// Get title from info JSON (single pass, no extra yt-dlp call)
+	title := readInfoJSON(tmpDir)
 
 	return &MediaResult{
 		Title:    title,
@@ -312,6 +353,7 @@ func (s *YtDlpService) DownloadAudio(sourceURL string) (*MediaResult, error) {
 		"--max-filesize", maxSize,
 		"--no-playlist",
 		"--no-warnings",
+		"--write-info-json",
 		"-o", outputPath,
 		sourceURL,
 	)
@@ -326,7 +368,8 @@ func (s *YtDlpService) DownloadAudio(sourceURL string) (*MediaResult, error) {
 		return nil, fmt.Errorf("failed to read downloaded file: %w", err)
 	}
 
-	title := s.getTitle(sourceURL)
+	// Get title from info JSON (single pass, no extra yt-dlp call)
+	title := readInfoJSON(tmpDir)
 
 	return &MediaResult{
 		Title:    title,
@@ -356,6 +399,7 @@ func (s *YtDlpService) DownloadTikTok(sourceURL string) (*MediaResult, error) {
 		"--max-filesize", maxSize,
 		"--no-playlist",
 		"--no-warnings",
+		"--write-info-json",
 		"-o", outputPath,
 		sourceURL,
 	)
@@ -370,7 +414,8 @@ func (s *YtDlpService) DownloadTikTok(sourceURL string) (*MediaResult, error) {
 		return nil, fmt.Errorf("failed to read downloaded file: %w", err)
 	}
 
-	title := s.getTitle(sourceURL)
+	// Get title from info JSON (single pass, no extra yt-dlp call)
+	title := readInfoJSON(tmpDir)
 
 	return &MediaResult{
 		Title:    title,
@@ -378,29 +423,4 @@ func (s *YtDlpService) DownloadTikTok(sourceURL string) (*MediaResult, error) {
 		Mimetype: "video/mp4",
 		Data:     data,
 	}, nil
-}
-
-// getTitle fetches the title of a URL using yt-dlp --dump-json.
-func (s *YtDlpService) getTitle(sourceURL string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, s.bin,
-		"--dump-json",
-		"--no-download",
-		"--no-warnings",
-		"--no-playlist",
-		sourceURL,
-	)
-
-	output, err := cmd.Output()
-	if err != nil {
-		return "Downloaded Media"
-	}
-
-	var info ytDlpInfo
-	if err := json.Unmarshal(output, &info); err != nil || info.Title == "" {
-		return "Downloaded Media"
-	}
-	return info.Title
 }

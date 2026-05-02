@@ -268,9 +268,28 @@ func DownloadMediaFromMessage(client *whatsmeow.Client, msg *waProto.Message) ([
 }
 
 // GetQuotedMessage returns the quoted message if the event is a reply.
+// Checks all message types that can carry ContextInfo (text, image, video, sticker, document).
 func GetQuotedMessage(evt *events.Message) *waProto.Message {
+	// Collect all possible ContextInfo sources.
+	var ctxInfos []*waProto.ContextInfo
 	if ext := evt.Message.GetExtendedTextMessage(); ext != nil {
-		if ctx := ext.GetContextInfo(); ctx != nil {
+		ctxInfos = append(ctxInfos, ext.GetContextInfo())
+	}
+	if img := evt.Message.GetImageMessage(); img != nil {
+		ctxInfos = append(ctxInfos, img.GetContextInfo())
+	}
+	if vid := evt.Message.GetVideoMessage(); vid != nil {
+		ctxInfos = append(ctxInfos, vid.GetContextInfo())
+	}
+	if stk := evt.Message.GetStickerMessage(); stk != nil {
+		ctxInfos = append(ctxInfos, stk.GetContextInfo())
+	}
+	if doc := evt.Message.GetDocumentMessage(); doc != nil {
+		ctxInfos = append(ctxInfos, doc.GetContextInfo())
+	}
+
+	for _, ctx := range ctxInfos {
+		if ctx != nil && ctx.GetQuotedMessage() != nil {
 			return ctx.GetQuotedMessage()
 		}
 	}

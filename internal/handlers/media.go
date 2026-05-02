@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types/events"
@@ -29,7 +31,12 @@ func NewMediaHandler(pool *services.WorkerPool) *MediaHandler {
 
 // HandleSticker converts an image/video/GIF to a WebP sticker.
 func (h *MediaHandler) HandleSticker(client *whatsmeow.Client, evt *events.Message) {
-	h.pool.Acquire()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := h.pool.AcquireContext(ctx); err != nil {
+		utils.ReplyTextDirect(client, evt, "Bot sedang sibuk, coba lagi nanti.")
+		return
+	}
 	defer h.pool.Release()
 
 	// Try to get media from the message itself (image/video with caption)
@@ -111,7 +118,12 @@ func (h *MediaHandler) HandleSticker(client *whatsmeow.Client, evt *events.Messa
 
 // HandleStickerToImage converts a sticker back to a PNG image.
 func (h *MediaHandler) HandleStickerToImage(client *whatsmeow.Client, evt *events.Message) {
-	h.pool.Acquire()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := h.pool.AcquireContext(ctx); err != nil {
+		utils.ReplyTextDirect(client, evt, "Bot sedang sibuk, coba lagi nanti.")
+		return
+	}
 	defer h.pool.Release()
 
 	// Get the sticker from a quoted message.
@@ -146,7 +158,12 @@ func (h *MediaHandler) HandleStickerToImage(client *whatsmeow.Client, evt *event
 
 // HandleRetrieveViewOnce resends a view once message as a normal message.
 func (h *MediaHandler) HandleRetrieveViewOnce(client *whatsmeow.Client, evt *events.Message) {
-	h.pool.Acquire()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := h.pool.AcquireContext(ctx); err != nil {
+		utils.ReplyTextDirect(client, evt, "Bot sedang sibuk, coba lagi nanti.")
+		return
+	}
 	defer h.pool.Release()
 
 	// Get quoted message.
@@ -209,7 +226,12 @@ func (h *MediaHandler) HandleImage(client *whatsmeow.Client, evt *events.Message
 // HandleTextSticker adds meme-style text to a sticker or image (command: .ts <text>).
 // Usage: send/reply sticker or image with .ts TEKS
 func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.Message, args []string) {
-	h.pool.Acquire()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := h.pool.AcquireContext(ctx); err != nil {
+		utils.ReplyTextDirect(client, evt, "Bot sedang sibuk, coba lagi nanti.")
+		return
+	}
 	defer h.pool.Release()
 
 	if len(args) == 0 {
@@ -303,7 +325,12 @@ func (h *MediaHandler) HandleTextSticker(client *whatsmeow.Client, evt *events.M
 
 // HandleBrat creates a 'brat' style sticker from text.
 func (h *MediaHandler) HandleBrat(client *whatsmeow.Client, evt *events.Message, args []string) {
-	h.pool.Acquire()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := h.pool.AcquireContext(ctx); err != nil {
+		utils.ReplyTextDirect(client, evt, "Bot sedang sibuk, coba lagi nanti.")
+		return
+	}
 	defer h.pool.Release()
 
 	if len(args) == 0 {

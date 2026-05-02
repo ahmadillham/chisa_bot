@@ -45,7 +45,7 @@ func (h *AntiStickerHandler) CheckAndRevoke(client *whatsmeow.Client, evt *event
 
 	// 1. Check if the user is banned from sending stickers.
 	if h.userStore.IsBanned(evt.Info.Sender.ToNonAD().String()) {
-		slog.Info("Banned user sent a sticker in — revoking", "val", evt.Info.Sender.User, "val", evt.Info.Chat.String())
+		slog.Info("Banned user sent sticker — revoking", "user", evt.Info.Sender.User, "chat", evt.Info.Chat.String())
 
 		// Revoke immediately
 		revokeMsg := client.BuildRevoke(evt.Info.Chat, evt.Info.Sender, evt.Info.ID)
@@ -58,7 +58,6 @@ func (h *AntiStickerHandler) CheckAndRevoke(client *whatsmeow.Client, evt *event
 
 	return false
 }
-
 
 
 // HandleBanStickerUser bans a user from sending any sticker in the group (admin only).

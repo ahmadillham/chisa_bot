@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 )
 
 // WorkerPool limits concurrent execution of resource-intensive tasks.
@@ -16,22 +17,15 @@ func NewWorkerPool(size int) *WorkerPool {
 	}
 }
 
-// Do executes a function within the pool's concurrency limit.
-// It blocks until a slot is available or the context is cancelled.
-func (p *WorkerPool) Do(ctx context.Context, task func()) error {
+// AcquireContext takes a slot in the pool, blocking until available or context is cancelled.
+// Must call Release afterwards if nil is returned.
+func (p *WorkerPool) AcquireContext(ctx context.Context) error {
 	select {
 	case p.sem <- struct{}{}:
-		defer func() { <-p.sem }()
-		task()
 		return nil
 	case <-ctx.Done():
-		return ctx.Err()
+		return fmt.Errorf("worker pool full, coba lagi nanti: %w", ctx.Err())
 	}
-}
-
-// Acquire takes a slot in the pool. Must call Release afterwards.
-func (p *WorkerPool) Acquire() {
-	p.sem <- struct{}{}
 }
 
 // Release frees a slot in the pool.

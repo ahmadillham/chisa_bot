@@ -49,7 +49,7 @@ func StartTempCleaner(interval time.Duration, maxAge time.Duration) {
 			}
 
 			if cleanedCount > 0 {
-				slog.Info("Deleted %d old temporary files/directories.", "val", cleanedCount)
+				slog.Info("Cleaned old temp files", "count", cleanedCount)
 			}
 		}
 	}()
