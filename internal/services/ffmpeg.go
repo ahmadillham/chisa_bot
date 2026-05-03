@@ -244,8 +244,8 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string, ext string,
 		bottomText = strings.TrimSpace(parts[0])
 	}
 
-	// Base scaling and padding for sticker format. We use format=bgra to ensure alpha channel support.
-	drawFilter := "scale='if(gt(iw,ih),510,-2)':'if(gt(iw,ih),-2,510)',format=bgra,pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000"
+	// Scale first, then draw text on the scaled image bounds, THEN pad to 512x512.
+	drawFilter := "scale='if(gt(iw,ih),510,-2)':'if(gt(iw,ih),-2,510)',format=bgra"
 
 	// If animated, limit FPS and add fps filter early
 	if isAnimated {
@@ -264,7 +264,7 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string, ext string,
 		if borderW < 2 {
 			borderW = 2
 		}
-		drawFilter += fmt.Sprintf(",drawtext=fontfile='%s':text='%s':fontcolor=white:fontsize=%d:bordercolor=black:borderw=%d:x=(w-text_w)/2:y=20:line_spacing=5:text_align=C", fontPath, safeTop, fontSizeTop, borderW)
+		drawFilter += fmt.Sprintf(",drawtext=fontfile='%s':text='%s':fontcolor=white:fontsize=%d:bordercolor=black:borderw=%d:x=(w-text_w)/2:y=10:line_spacing=5:text_align=C", fontPath, safeTop, fontSizeTop, borderW)
 	}
 
 	if bottomText != "" {
@@ -275,8 +275,11 @@ func (f *FFmpegService) AddTextToWebP(inputData []byte, text string, ext string,
 		if borderW < 2 {
 			borderW = 2
 		}
-		drawFilter += fmt.Sprintf(",drawtext=fontfile='%s':text='%s':fontcolor=white:fontsize=%d:bordercolor=black:borderw=%d:x=(w-text_w)/2:y=h-text_h-20:line_spacing=5:text_align=C", fontPath, safeBottom, fontSizeBottom, borderW)
+		drawFilter += fmt.Sprintf(",drawtext=fontfile='%s':text='%s':fontcolor=white:fontsize=%d:bordercolor=black:borderw=%d:x=(w-text_w)/2:y=h-text_h-10:line_spacing=5:text_align=C", fontPath, safeBottom, fontSizeBottom, borderW)
 	}
+
+	// Pad to 512x512 after drawing text
+	drawFilter += ",pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000"
 
 	ffmpegArgs := []string{"-i", inputPath}
 
