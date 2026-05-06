@@ -59,6 +59,7 @@ func main() {
 
 	// Initialize handlers using the bot SQLite DB.
 	bannedStickerUserStore := services.NewBannedStickerUserStore(botDB)
+	bannedImageUserStore := services.NewBannedImageUserStore(botDB)
 	msgCache := services.NewMessageCacheStore(botDB)
 
 	pool := services.NewWorkerPool(config.MaxConcurrentMediaTasks)
@@ -69,6 +70,7 @@ func main() {
 	menuHandler := handlers.NewMenuHandler()
 	sysHandler := handlers.NewSystemHandler(msgCache)
 	antiStickerHandler := handlers.NewAntiStickerHandler(bannedStickerUserStore, groupHandler)
+	antiImageHandler := handlers.NewAntiImageHandler(bannedImageUserStore, groupHandler)
 
 	limiter := ratelimit.New(
 		time.Duration(config.RateLimitUserCooldownSec)*time.Second,
@@ -100,6 +102,10 @@ func main() {
 	registry.Register("unbanuser", antiStickerHandler.HandleUnbanStickerUser)
 	registry.Register("listuser", antiStickerHandler.HandleListBannedUsers)
 
+	registry.Register("banimg", antiImageHandler.HandleBanImageUser)
+	registry.Register("unbanimg", antiImageHandler.HandleUnbanImageUser)
+	registry.Register("listimg", antiImageHandler.HandleListBannedImageUsers)
+
 	registry.Register("menu", wrap(menuHandler.HandleMenu))
 	registry.Register("stat", wrap(sysHandler.HandleStats))
 	registry.Register("read", wrap(sysHandler.HandleRecover))
@@ -119,7 +125,7 @@ func main() {
 						slog.Error("PANIC RECOVERED", "panic", r)
 					}
 				}()
-				handleMessage(client, evt, registry, antiStickerHandler, limiter)
+				handleMessage(client, evt, registry, antiStickerHandler, antiImageHandler, limiter)
 			}()
 
 		case *events.GroupInfo:
@@ -205,11 +211,17 @@ func handleMessage(
 	evt *events.Message,
 	registry *handlers.Registry,
 	antiStickerHandler *handlers.AntiStickerHandler,
+	antiImageHandler *handlers.AntiImageHandler,
 	limiter *ratelimit.Limiter,
 ) {
 	// Anti-sticker check: revoke stickers from banned users BEFORE anything else.
 	if antiStickerHandler.CheckAndRevoke(client, evt) {
 		return // Message was revoked, no further processing needed.
+	}
+
+	// Anti-image check: revoke images from banned users BEFORE anything else.
+	if antiImageHandler.CheckAndRevoke(client, evt) {
+		return // Image was revoked, no further processing needed.
 	}
 
 	// Extract text from various message types.

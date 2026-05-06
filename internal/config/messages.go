@@ -19,6 +19,10 @@ const (
 • .unbanuser 
 • .listuser 
 
+• .banimg
+• .unbanimg 
+• .listimg 
+
 • .read 
 • .stat 
 • .menu `
