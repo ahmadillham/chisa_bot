@@ -120,8 +120,11 @@ func (h *GroupHandler) HandleKick(client *whatsmeow.Client, evt *events.Message,
 		return
 	}
 
-	// preventing kicking self (bot) or admins should be handled by WhatsApp anyway (admins can kick admins unless creator, bot can't kick admins if not admin etc).
-	// But let's just try.
+	// Prevent kicking the bot itself.
+	if client.Store.ID != nil && targetJID.User == client.Store.ID.User {
+		utils.ReplyTextDirect(client, evt, "Tidak bisa kick bot sendiri.")
+		return
+	}
 
 	// Use "remove" string literal which is standard for UpdateGroupParticipants
 	_, err := client.UpdateGroupParticipants(context.Background(), evt.Info.Chat, []types.JID{targetJID}, whatsmeow.ParticipantChangeRemove)

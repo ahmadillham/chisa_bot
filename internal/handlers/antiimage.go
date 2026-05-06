@@ -79,6 +79,12 @@ func (h *AntiImageHandler) HandleBanImageUser(client *whatsmeow.Client, evt *eve
 		return
 	}
 
+	// Prevent banning the bot itself.
+	if client.Store.ID != nil && targetJID.User == client.Store.ID.User {
+		utils.ReplyTextDirect(client, evt, "Tidak bisa ban bot sendiri.")
+		return
+	}
+
 	targetStr := targetJID.ToNonAD().String()
 	mentionText := fmt.Sprintf("@%s sekarang dilarang mengirim gambar.", targetJID.ToNonAD().User)
 	if !h.userStore.Add(targetStr) {
