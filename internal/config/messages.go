@@ -23,6 +23,10 @@ const (
 • .unbanimg 
 • .listimg 
 
+• .addvip
+• .rmvip
+• .listvip
+
 • .read 
 • .stat 
 • .menu `
