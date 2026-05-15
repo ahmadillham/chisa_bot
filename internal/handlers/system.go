@@ -164,13 +164,34 @@ func (h *SystemHandler) HandleRecover(client *whatsmeow.Client, evt *events.Mess
 	quoted := ctxInfo.GetQuotedMessage()
 	var targetMsg *waProto.Message
 
-	// Ambil dari cache terlebih dahulu untuk mendapatkan versi original
-	// (sangat berguna jika pesan sudah ditarik/dihapus, karena "quoted" mungkin kosong atau berisi REVOKE)
+	// Fallback mechanism:
+	// 1. Check if the message is in the cache (gives us the raw original message)
 	cachedB, err := h.msgCache.Get(bStanzaId)
-	
-	if err == nil && cachedB != nil {
-		targetMsg = cachedB
-	} else if quoted != nil {
+
+	// Determine what the user wants to read
+	if quoted != nil && utils.IsViewOnceMessage(quoted) {
+		// User is replying directly to a View Once message
+		targetMsg = quoted
+		if err == nil {
+			targetMsg = cachedB // Prefer cached for completeness, though quoted is usually enough
+		}
+	} else if err == nil {
+		// If B is in cache, see if it's a text reply to a deleted message A
+		if nestedCtx := cachedB.GetExtendedTextMessage().GetContextInfo(); nestedCtx != nil {
+			aStanzaId := nestedCtx.GetStanzaID()
+			if aStanzaId != "" {
+				cachedA, errA := h.msgCache.Get(aStanzaId)
+				if errA == nil {
+					targetMsg = cachedA // Target is the grandparent (deleted message A)
+				}
+			}
+		}
+		// If targetMsg is still nil, maybe user wants to recover B itself (if B was deleted)
+		if targetMsg == nil {
+			targetMsg = cachedB
+		}
+	} else {
+		// Not a View Once, and not in cache. But we have quoted message.
 		targetMsg = quoted
 	}
 
