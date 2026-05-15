@@ -58,6 +58,7 @@ func main() {
 	}
 
 	// Initialize handlers using the bot SQLite DB.
+	vipStore := services.NewVIPUserStore(botDB)
 	bannedStickerUserStore := services.NewBannedStickerUserStore(botDB)
 	bannedImageUserStore := services.NewBannedImageUserStore(botDB)
 	msgCache := services.NewMessageCacheStore(botDB)
@@ -66,11 +67,12 @@ func main() {
 
 	mediaHandler := handlers.NewMediaHandler(pool)
 	dlHandler := handlers.NewDownloaderHandler(pool)
-	groupHandler := handlers.NewGroupHandler()
+	groupHandler := handlers.NewGroupHandler(vipStore)
 	menuHandler := handlers.NewMenuHandler()
+	vipHandler := handlers.NewVIPHandler(vipStore)
 	sysHandler := handlers.NewSystemHandler(msgCache)
-	antiStickerHandler := handlers.NewAntiStickerHandler(bannedStickerUserStore, groupHandler)
-	antiImageHandler := handlers.NewAntiImageHandler(bannedImageUserStore, groupHandler)
+	antiStickerHandler := handlers.NewAntiStickerHandler(bannedStickerUserStore, vipStore, groupHandler)
+	antiImageHandler := handlers.NewAntiImageHandler(bannedImageUserStore, vipStore, groupHandler)
 
 	limiter := ratelimit.New(
 		time.Duration(config.RateLimitUserCooldownSec)*time.Second,
@@ -109,6 +111,10 @@ func main() {
 	registry.Register("menu", wrap(menuHandler.HandleMenu))
 	registry.Register("stat", wrap(sysHandler.HandleStats))
 	registry.Register("read", wrap(sysHandler.HandleRecover))
+
+	registry.Register("addvip", vipHandler.HandleAddVIP)
+	registry.Register("rmvip", vipHandler.HandleRemoveVIP)
+	registry.Register("listvip", vipHandler.HandleListVIP)
 
 	// Register the main event handler.
 	client.AddEventHandler(func(rawEvt interface{}) {

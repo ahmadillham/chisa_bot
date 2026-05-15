@@ -16,12 +16,13 @@ import (
 // AntiStickerHandler handles auto-deletion of stickers from banned users.
 type AntiStickerHandler struct {
 	userStore    *services.BannedStickerUserStore
+	vipStore     *services.VIPUserStore
 	groupHandler *GroupHandler
 }
 
 // NewAntiStickerHandler creates a new AntiStickerHandler.
-func NewAntiStickerHandler(userStore *services.BannedStickerUserStore, groupHandler *GroupHandler) *AntiStickerHandler {
-	return &AntiStickerHandler{userStore: userStore, groupHandler: groupHandler}
+func NewAntiStickerHandler(userStore *services.BannedStickerUserStore, vipStore *services.VIPUserStore, groupHandler *GroupHandler) *AntiStickerHandler {
+	return &AntiStickerHandler{userStore: userStore, vipStore: vipStore, groupHandler: groupHandler}
 }
 
 // CheckAndRevoke checks if a message contains a banned sticker and revokes it.
@@ -82,6 +83,12 @@ func (h *AntiStickerHandler) HandleBanStickerUser(client *whatsmeow.Client, evt 
 	// Prevent banning the bot itself.
 	if client.Store.ID != nil && targetJID.User == client.Store.ID.User {
 		utils.ReplyTextDirect(client, evt, "Tidak bisa ban bot sendiri.")
+		return
+	}
+
+	// Prevent banning VIP users.
+	if h.vipStore != nil && h.vipStore.IsVIP(targetJID.ToNonAD().String()) {
+		utils.ReplyTextDirect(client, evt, "Gagal ban. User tersebut memiliki hak VIP.")
 		return
 	}
 

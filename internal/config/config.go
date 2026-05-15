@@ -21,6 +21,7 @@ var (
 	MaxAudioSizeMB           = 50
 	MaxVideoStickerSec       = 8
 	MaxConcurrentMediaTasks  = 4
+	OwnerJID                 = "" // JID of the bot owner
 )
 
 // Bot metadata for sticker packs.
@@ -56,6 +57,9 @@ func Load() {
 
 	if p := os.Getenv("PREFIXES"); p != "" {
 		Prefixes = strings.Split(p, ",")
+	}
+	if v := os.Getenv("OWNER_JID"); v != "" {
+		OwnerJID = v
 	}
 	if v := os.Getenv("BOT_DATABASE_FILE"); v != "" {
 		BotDatabaseFile = v

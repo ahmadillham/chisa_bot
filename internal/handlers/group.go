@@ -10,16 +10,18 @@ import (
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
 
+	"chisa_bot/internal/services"
 	"chisa_bot/pkg/utils"
 )
 
 // GroupHandler handles group management features.
 type GroupHandler struct {
+	vipStore *services.VIPUserStore
 }
 
 // NewGroupHandler creates a new GroupHandler.
-func NewGroupHandler() *GroupHandler {
-	return &GroupHandler{}
+func NewGroupHandler(vipStore *services.VIPUserStore) *GroupHandler {
+	return &GroupHandler{vipStore: vipStore}
 }
 
 // IsAdmin checks if the user is an admin in the group.
@@ -123,6 +125,12 @@ func (h *GroupHandler) HandleKick(client *whatsmeow.Client, evt *events.Message,
 	// Prevent kicking the bot itself.
 	if client.Store.ID != nil && targetJID.User == client.Store.ID.User {
 		utils.ReplyTextDirect(client, evt, "Tidak bisa kick bot sendiri.")
+		return
+	}
+
+	// Prevent kicking VIP users.
+	if h.vipStore != nil && h.vipStore.IsVIP(targetJID.ToNonAD().String()) {
+		utils.ReplyTextDirect(client, evt, "Gagal kick. User tersebut memiliki hak VIP.")
 		return
 	}
 

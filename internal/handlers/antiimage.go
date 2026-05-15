@@ -16,12 +16,13 @@ import (
 // AntiImageHandler handles auto-deletion of images from banned users.
 type AntiImageHandler struct {
 	userStore    *services.BannedImageUserStore
+	vipStore     *services.VIPUserStore
 	groupHandler *GroupHandler
 }
 
 // NewAntiImageHandler creates a new AntiImageHandler.
-func NewAntiImageHandler(userStore *services.BannedImageUserStore, groupHandler *GroupHandler) *AntiImageHandler {
-	return &AntiImageHandler{userStore: userStore, groupHandler: groupHandler}
+func NewAntiImageHandler(userStore *services.BannedImageUserStore, vipStore *services.VIPUserStore, groupHandler *GroupHandler) *AntiImageHandler {
+	return &AntiImageHandler{userStore: userStore, vipStore: vipStore, groupHandler: groupHandler}
 }
 
 // CheckAndRevoke checks if a message contains an image from a banned user and revokes it.
@@ -82,6 +83,12 @@ func (h *AntiImageHandler) HandleBanImageUser(client *whatsmeow.Client, evt *eve
 	// Prevent banning the bot itself.
 	if client.Store.ID != nil && targetJID.User == client.Store.ID.User {
 		utils.ReplyTextDirect(client, evt, "Tidak bisa ban bot sendiri.")
+		return
+	}
+
+	// Prevent banning VIP users.
+	if h.vipStore != nil && h.vipStore.IsVIP(targetJID.ToNonAD().String()) {
+		utils.ReplyTextDirect(client, evt, "Gagal ban. User tersebut memiliki hak VIP.")
 		return
 	}
 
