@@ -22,7 +22,15 @@ func NewVIPHandler(vipStore *services.VIPUserStore) *VIPHandler {
 
 // isOwner checks if the sender is the owner of the bot.
 func (h *VIPHandler) isOwner(evt *events.Message) bool {
-	return config.OwnerJID != "" && evt.Info.Sender.ToNonAD().String() == config.OwnerJID
+	senderStr := evt.Info.Sender.ToNonAD().String()
+	ownerStr := config.OwnerJID
+
+	// Debugging log if they don't match
+	if senderStr != ownerStr {
+		fmt.Printf("[DEBUG VIP] Sender: '%s', Expected Owner: '%s'\n", senderStr, ownerStr)
+	}
+
+	return ownerStr != "" && senderStr == ownerStr
 }
 
 // HandleAddVIP adds a user to the VIP list (owner only).

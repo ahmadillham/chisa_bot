@@ -59,7 +59,7 @@ func Load() {
 		Prefixes = strings.Split(p, ",")
 	}
 	if v := os.Getenv("OWNER_JID"); v != "" {
-		OwnerJID = v
+		OwnerJID = strings.TrimSpace(v)
 	}
 	if v := os.Getenv("BOT_DATABASE_FILE"); v != "" {
 		BotDatabaseFile = v
