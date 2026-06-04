@@ -58,21 +58,17 @@ func main() {
 	}
 
 	// Initialize handlers using the bot SQLite DB.
-	vipStore := services.NewVIPUserStore(botDB)
 	bannedStickerUserStore := services.NewBannedStickerUserStore(botDB)
 	bannedImageUserStore := services.NewBannedImageUserStore(botDB)
-	msgCache := services.NewMessageCacheStore(botDB)
 
 	pool := services.NewWorkerPool(config.MaxConcurrentMediaTasks)
 
 	mediaHandler := handlers.NewMediaHandler(pool)
 	dlHandler := handlers.NewDownloaderHandler(pool)
-	groupHandler := handlers.NewGroupHandler(vipStore)
+	groupHandler := handlers.NewGroupHandler()
 	menuHandler := handlers.NewMenuHandler()
-	vipHandler := handlers.NewVIPHandler(vipStore)
-	sysHandler := handlers.NewSystemHandler(msgCache)
-	antiStickerHandler := handlers.NewAntiStickerHandler(bannedStickerUserStore, vipStore, groupHandler)
-	antiImageHandler := handlers.NewAntiImageHandler(bannedImageUserStore, vipStore, groupHandler)
+	antiStickerHandler := handlers.NewAntiStickerHandler(bannedStickerUserStore, groupHandler)
+	antiImageHandler := handlers.NewAntiImageHandler(bannedImageUserStore, groupHandler)
 
 	limiter := ratelimit.New(
 		time.Duration(config.RateLimitUserCooldownSec)*time.Second,
@@ -102,28 +98,17 @@ func main() {
 
 	registry.Register("banuser", antiStickerHandler.HandleBanStickerUser)
 	registry.Register("unbanuser", antiStickerHandler.HandleUnbanStickerUser)
-	registry.Register("listuser", antiStickerHandler.HandleListBannedUsers)
 
 	registry.Register("banimg", antiImageHandler.HandleBanImageUser)
 	registry.Register("unbanimg", antiImageHandler.HandleUnbanImageUser)
-	registry.Register("listimg", antiImageHandler.HandleListBannedImageUsers)
 
 	registry.Register("menu", wrap(menuHandler.HandleMenu))
-	registry.Register("stat", wrap(sysHandler.HandleStats))
-	registry.Register("read", wrap(sysHandler.HandleRecover))
-
-	registry.Register("addvip", vipHandler.HandleAddVIP)
-	registry.Register("rmvip", vipHandler.HandleRemoveVIP)
-	registry.Register("listvip", vipHandler.HandleListVIP)
 
 	// Register the main event handler.
 	client.AddEventHandler(func(rawEvt interface{}) {
 		switch evt := rawEvt.(type) {
 
 		case *events.Message:
-			// Save the original intact message to SQLite for Anti-Delete features
-			msgCache.Save(evt.Info.ID, evt.Message)
-
 			// Process message commands in a goroutine to avoid blocking.
 			go func() {
 				defer func() {
@@ -158,15 +143,6 @@ func main() {
 
 	// Start temporary files auto-cleaner (hourly scan, delete files older than 1 hour)
 	services.StartTempCleaner(1*time.Hour, 1*time.Hour)
-
-	// Background cleanup for message cache (once a day)
-	go func() {
-		ticker := time.NewTicker(24 * time.Hour)
-		defer ticker.Stop()
-		for range ticker.C {
-			msgCache.Clean()
-		}
-	}()
 
 	// Connect to WhatsApp.
 	if client.Store.ID == nil {

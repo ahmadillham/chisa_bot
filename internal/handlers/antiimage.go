@@ -16,13 +16,12 @@ import (
 // AntiImageHandler handles auto-deletion of images from banned users.
 type AntiImageHandler struct {
 	userStore    *services.BannedImageUserStore
-	vipStore     *services.VIPUserStore
 	groupHandler *GroupHandler
 }
 
 // NewAntiImageHandler creates a new AntiImageHandler.
-func NewAntiImageHandler(userStore *services.BannedImageUserStore, vipStore *services.VIPUserStore, groupHandler *GroupHandler) *AntiImageHandler {
-	return &AntiImageHandler{userStore: userStore, vipStore: vipStore, groupHandler: groupHandler}
+func NewAntiImageHandler(userStore *services.BannedImageUserStore, groupHandler *GroupHandler) *AntiImageHandler {
+	return &AntiImageHandler{userStore: userStore, groupHandler: groupHandler}
 }
 
 // CheckAndRevoke checks if a message contains an image from a banned user and revokes it.
@@ -86,12 +85,6 @@ func (h *AntiImageHandler) HandleBanImageUser(client *whatsmeow.Client, evt *eve
 		return
 	}
 
-	// Prevent banning VIP users.
-	if h.vipStore != nil && h.vipStore.IsVIP(targetJID.ToNonAD().String()) {
-		utils.ReplyTextDirect(client, evt, "Gagal ban. User tersebut memiliki hak VIP.")
-		return
-	}
-
 	targetStr := targetJID.ToNonAD().String()
 	mentionText := fmt.Sprintf("@%s sekarang dilarang mengirim gambar.", targetJID.ToNonAD().User)
 	if !h.userStore.Add(targetStr) {
@@ -125,20 +118,4 @@ func (h *AntiImageHandler) HandleUnbanImageUser(client *whatsmeow.Client, evt *e
 		mentionText = fmt.Sprintf("@%s tidak ada di daftar larangan kirim gambar.", targetJID.ToNonAD().User)
 	}
 	utils.ReplyTextDirectWithMentions(client, evt, mentionText, []string{targetStr})
-}
-
-// HandleListBannedImageUsers shows all users forbidden from sending images (admin only).
-func (h *AntiImageHandler) HandleListBannedImageUsers(client *whatsmeow.Client, evt *events.Message, args []string) {
-	if !evt.Info.IsGroup {
-		utils.ReplyTextDirect(client, evt, config.MsgOnlyGroup)
-		return
-	}
-
-	if !h.groupHandler.IsAdmin(client, evt.Info.Chat, evt.Info.Sender) {
-		utils.ReplyTextDirect(client, evt, config.MsgOnlyAdmin)
-		return
-	}
-
-	list := h.userStore.ListFormatted()
-	utils.ReplyTextDirect(client, evt, fmt.Sprintf("*Daftar User Dilarang Kirim Gambar*\n\n%s", list))
 }

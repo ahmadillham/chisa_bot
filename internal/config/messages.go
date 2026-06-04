@@ -17,17 +17,9 @@ const (
 
 • .banuser
 • .unbanuser 
-• .listuser 
 
 • .banimg
 • .unbanimg 
-• .listimg 
 
-• .addvip
-• .rmvip
-• .listvip
-
-• .read 
-• .stat 
 • .menu `
 )

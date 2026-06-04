@@ -10,22 +10,28 @@ import (
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
 
-	"chisa_bot/internal/services"
+	"chisa_bot/internal/config"
 	"chisa_bot/pkg/utils"
 )
 
 // GroupHandler handles group management features.
 type GroupHandler struct {
-	vipStore *services.VIPUserStore
 }
 
 // NewGroupHandler creates a new GroupHandler.
-func NewGroupHandler(vipStore *services.VIPUserStore) *GroupHandler {
-	return &GroupHandler{vipStore: vipStore}
+func NewGroupHandler() *GroupHandler {
+	return &GroupHandler{}
 }
 
-// IsAdmin checks if the user is an admin in the group.
+// IsAdmin checks if the user is an admin in the group, or if they have special privileges (VIP/Owner).
 func (h *GroupHandler) IsAdmin(client *whatsmeow.Client, chatJID types.JID, userJID types.JID) bool {
+	// Cek apakah user adalah Owner
+	for _, owner := range config.OwnerJIDs {
+		if userJID.User == owner || userJID.ToNonAD().String() == owner {
+			return true
+		}
+	}
+
 	groupInfo, err := client.GetGroupInfo(context.Background(), chatJID)
 	if err != nil {
 		slog.Error("failed to get info", "error", err)
@@ -125,12 +131,6 @@ func (h *GroupHandler) HandleKick(client *whatsmeow.Client, evt *events.Message,
 	// Prevent kicking the bot itself.
 	if client.Store.ID != nil && targetJID.User == client.Store.ID.User {
 		utils.ReplyTextDirect(client, evt, "Tidak bisa kick bot sendiri.")
-		return
-	}
-
-	// Prevent kicking VIP users.
-	if h.vipStore != nil && h.vipStore.IsVIP(targetJID.ToNonAD().String()) {
-		utils.ReplyTextDirect(client, evt, "Gagal kick. User tersebut memiliki hak VIP.")
 		return
 	}
 

@@ -16,13 +16,12 @@ import (
 // AntiStickerHandler handles auto-deletion of stickers from banned users.
 type AntiStickerHandler struct {
 	userStore    *services.BannedStickerUserStore
-	vipStore     *services.VIPUserStore
 	groupHandler *GroupHandler
 }
 
 // NewAntiStickerHandler creates a new AntiStickerHandler.
-func NewAntiStickerHandler(userStore *services.BannedStickerUserStore, vipStore *services.VIPUserStore, groupHandler *GroupHandler) *AntiStickerHandler {
-	return &AntiStickerHandler{userStore: userStore, vipStore: vipStore, groupHandler: groupHandler}
+func NewAntiStickerHandler(userStore *services.BannedStickerUserStore, groupHandler *GroupHandler) *AntiStickerHandler {
+	return &AntiStickerHandler{userStore: userStore, groupHandler: groupHandler}
 }
 
 // CheckAndRevoke checks if a message contains a banned sticker and revokes it.
@@ -86,12 +85,6 @@ func (h *AntiStickerHandler) HandleBanStickerUser(client *whatsmeow.Client, evt 
 		return
 	}
 
-	// Prevent banning VIP users.
-	if h.vipStore != nil && h.vipStore.IsVIP(targetJID.ToNonAD().String()) {
-		utils.ReplyTextDirect(client, evt, "Gagal ban. User tersebut memiliki hak VIP.")
-		return
-	}
-
 	targetStr := targetJID.ToNonAD().String()
 	mentionText := fmt.Sprintf("@%s sekarang dilarang mengirim sticker.", targetJID.ToNonAD().User)
 	if !h.userStore.Add(targetStr) {
@@ -125,20 +118,4 @@ func (h *AntiStickerHandler) HandleUnbanStickerUser(client *whatsmeow.Client, ev
 		mentionText = fmt.Sprintf("@%s tidak ada di daftar larangan.", targetJID.ToNonAD().User)
 	}
 	utils.ReplyTextDirectWithMentions(client, evt, mentionText, []string{targetStr})
-}
-
-// HandleListBannedUsers shows all users forbidden from sending stickers (admin only).
-func (h *AntiStickerHandler) HandleListBannedUsers(client *whatsmeow.Client, evt *events.Message, args []string) {
-	if !evt.Info.IsGroup {
-		utils.ReplyTextDirect(client, evt, config.MsgOnlyGroup)
-		return
-	}
-
-	if !h.groupHandler.IsAdmin(client, evt.Info.Chat, evt.Info.Sender) {
-		utils.ReplyTextDirect(client, evt, config.MsgOnlyAdmin)
-		return
-	}
-
-	list := h.userStore.ListFormatted()
-	utils.ReplyTextDirect(client, evt, fmt.Sprintf("*Daftar User Dilarang Kirim Sticker*\n\n%s", list))
 }

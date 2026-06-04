@@ -13,9 +13,9 @@ A modular, high-performance WhatsApp bot built with Go and [whatsmeow](https://g
 | **Video Downloader** | `.dl <url>` — Download TikTok/IG/YouTube Video     |
 | **Audio Downloader** | `.mp3 <url>` — Download YouTube Audio              |
 | **Group Admin**      | `.tagall`, `.kick`                                 |
-| **User Ban**         | `.banuser`, `.unbanuser`, `.listuser`              |
+| **User Ban**         | `.banuser`, `.unbanuser`, `.banimg`, `.unbanimg`   |
 | **Welcome/Goodbye**  | Auto-message on group join/leave                   |
-| **System**           | `.menu`, `.stat`                                   |
+| **System**           | `.menu`                                            |
 
 **Prefixes:** `.` `!` `/` (all work interchangeably)
 
@@ -101,14 +101,12 @@ chisa_bot/
 │   │   ├── group.go             # Welcome/Goodbye, .tagall, .kick
 │   │   ├── media.go             # .s, .toimg, .ts, .brat
 │   │   ├── menu.go              # .menu
-│   │   ├── registry.go          # Command routing mapping
-│   │   └── system.go            # .stat
+│   │   └── registry.go          # Command routing mapping
 │   └── services/
 │       ├── bannedstickerusers.go# Banned sticker user management
 │       ├── cleanup.go           # Temp files auto-cleaner
 │       ├── downloader.go        # yt-dlp wrapper with URL validation
-│       ├── ffmpeg.go            # FFmpeg & ImageMagick wrapper
-│       └── messagecache.go      # Message caching for anti-delete
+│       └── ffmpeg.go            # FFmpeg & ImageMagick wrapper
 ├── pkg/
 │   ├── ratelimit/ratelimit.go   # Per-user/per-chat rate limiter
 │   └── utils/
@@ -153,6 +151,31 @@ MAX_CONCURRENT_MEDIA_TASKS=4
 ## Stopping the Bot
 
 Press `Ctrl+C` for graceful shutdown, or send `SIGTERM`.
+
+## Running with PM2 (Daemonize)
+
+To keep the bot running in the background and automatically restart on failure or server reboot, you can use [PM2](https://pm2.keymetrics.io/).
+
+1. Install PM2 (requires Node.js & npm):
+   ```bash
+   sudo npm install -g pm2
+   ```
+
+2. Start the bot:
+   ```bash
+   pm2 start ./chisabot --name "chisa_bot"
+   ```
+
+3. Save the PM2 process list to start on boot:
+   ```bash
+   pm2 save
+   pm2 startup
+   ```
+
+4. View logs:
+   ```bash
+   pm2 logs chisa_bot
+   ```
 
 ## Troubleshooting
 
