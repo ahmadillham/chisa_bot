@@ -22,6 +22,7 @@ var (
 	MaxVideoStickerSec       = 8
 	MaxConcurrentMediaTasks  = 4
 	OwnerJIDs                []string // JIDs of the bot owners
+	AdminExceptions          []string // JIDs of users with admin privileges
 )
 
 // Bot metadata for sticker packs.
@@ -64,6 +65,15 @@ func Load() {
 			part = strings.TrimSpace(part)
 			if part != "" {
 				OwnerJIDs = append(OwnerJIDs, part)
+			}
+		}
+	}
+	if v := os.Getenv("ADMIN_EXCEPTIONS"); v != "" {
+		parts := strings.Split(v, ",")
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				AdminExceptions = append(AdminExceptions, part)
 			}
 		}
 	}

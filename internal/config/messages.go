@@ -15,8 +15,8 @@ const (
 • .tagall
 • .kick 
 
-• .banuser
-• .unbanuser 
+• .bansticker
+• .unbansticker 
 
 • .banimg
 • .unbanimg 

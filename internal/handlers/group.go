@@ -23,11 +23,19 @@ func NewGroupHandler() *GroupHandler {
 	return &GroupHandler{}
 }
 
-// IsAdmin checks if the user is an admin in the group, or if they have special privileges (VIP/Owner).
+// IsAdmin checks if the user is an admin in the group, or if they have special privileges (VIP/Owner or Exception list).
 func (h *GroupHandler) IsAdmin(client *whatsmeow.Client, chatJID types.JID, userJID types.JID) bool {
+	userStr := userJID.ToNonAD().String()
 	// Cek apakah user adalah Owner
 	for _, owner := range config.OwnerJIDs {
-		if userJID.User == owner || userJID.ToNonAD().String() == owner {
+		if userJID.User == owner || userStr == owner {
+			return true
+		}
+	}
+	
+	// Cek apakah user ada di daftar AdminExceptions
+	for _, exception := range config.AdminExceptions {
+		if userJID.User == exception || userStr == exception {
 			return true
 		}
 	}

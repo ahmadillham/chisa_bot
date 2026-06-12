@@ -61,7 +61,7 @@ func (h *AntiStickerHandler) CheckAndRevoke(client *whatsmeow.Client, evt *event
 
 
 // HandleBanStickerUser bans a user from sending any sticker in the group (admin only).
-// Usage: reply or tag user with .banuser @user
+// Usage: reply or tag user with .bansticker @user
 func (h *AntiStickerHandler) HandleBanStickerUser(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if !evt.Info.IsGroup {
 		utils.ReplyTextDirect(client, evt, config.MsgOnlyGroup)
@@ -75,7 +75,7 @@ func (h *AntiStickerHandler) HandleBanStickerUser(client *whatsmeow.Client, evt 
 
 	targetJID, found := utils.GetTargetJID(evt)
 	if !found {
-		utils.ReplyTextDirect(client, evt, "Reply pesan atau tag member yang ingin dilarang mengirim sticker.\nContoh: .banuser @member")
+		utils.ReplyTextDirect(client, evt, "Reply pesan atau tag member yang ingin dilarang mengirim sticker.\nContoh: .bansticker @member")
 		return
 	}
 
@@ -94,7 +94,7 @@ func (h *AntiStickerHandler) HandleBanStickerUser(client *whatsmeow.Client, evt 
 }
 
 // HandleUnbanStickerUser unbans a user, allowing them to send stickers again (admin only).
-// Usage: reply or tag user with .unbanuser @user
+// Usage: reply or tag user with .unbansticker @user
 func (h *AntiStickerHandler) HandleUnbanStickerUser(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if !evt.Info.IsGroup {
 		utils.ReplyTextDirect(client, evt, config.MsgOnlyGroup)
@@ -108,7 +108,7 @@ func (h *AntiStickerHandler) HandleUnbanStickerUser(client *whatsmeow.Client, ev
 
 	targetJID, found := utils.GetTargetJID(evt)
 	if !found {
-		utils.ReplyTextDirect(client, evt, "Reply pesan atau tag member yang ingin diizinkan mengirim sticker lagi.\nContoh: .unbanuser @member")
+		utils.ReplyTextDirect(client, evt, "Reply pesan atau tag member yang ingin diizinkan mengirim sticker lagi.\nContoh: .unbansticker @member")
 		return
 	}
 

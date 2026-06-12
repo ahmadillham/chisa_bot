@@ -98,8 +98,8 @@ func main() {
 	registry.Register("tagall", wrap(groupHandler.HandleTagAll))
 	registry.Register("kick", groupHandler.HandleKick)
 
-	registry.Register("banuser", antiStickerHandler.HandleBanStickerUser)
-	registry.Register("unbanuser", antiStickerHandler.HandleUnbanStickerUser)
+	registry.Register("bansticker", antiStickerHandler.HandleBanStickerUser)
+	registry.Register("unbansticker", antiStickerHandler.HandleUnbanStickerUser)
 
 	registry.Register("banimg", antiImageHandler.HandleBanImageUser)
 	registry.Register("unbanimg", antiImageHandler.HandleUnbanImageUser)
