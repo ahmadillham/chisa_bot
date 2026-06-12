@@ -56,11 +56,20 @@ func findYtDlp() string {
 	return "yt-dlp" // fallback, hope it's in PATH
 }
 
-// getCookiesArg returns the --cookies flag if cookies.txt exists in the working directory.
+// getCookiesArg returns the --cookies flag if cookies.txt exists in the working directory or executable directory.
 func getCookiesArg() []string {
 	if _, err := os.Stat("cookies.txt"); err == nil {
+		slog.Info("cookies.txt ditemukan di working directory")
 		return []string{"--cookies", "cookies.txt"}
 	}
+	if exe, err := os.Executable(); err == nil {
+		cookiePath := filepath.Join(filepath.Dir(exe), "cookies.txt")
+		if _, err := os.Stat(cookiePath); err == nil {
+			slog.Info("cookies.txt ditemukan di direktori executable", "path", cookiePath)
+			return []string{"--cookies", cookiePath}
+		}
+	}
+	slog.Warn("cookies.txt TIDAK DITEMUKAN, download mungkin gagal jika video dibatasi usia")
 	return nil
 }
 
