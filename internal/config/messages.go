@@ -15,6 +15,9 @@ const (
 • .tagall
 • .kick 
 
+• .banchat
+• .unbanchat 
+
 • .bansticker
 • .unbansticker 
 
