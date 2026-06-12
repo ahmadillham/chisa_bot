@@ -56,6 +56,14 @@ func findYtDlp() string {
 	return "yt-dlp" // fallback, hope it's in PATH
 }
 
+// getCookiesArg returns the --cookies flag if cookies.txt exists in the working directory.
+func getCookiesArg() []string {
+	if _, err := os.Stat("cookies.txt"); err == nil {
+		return []string{"--cookies", "cookies.txt"}
+	}
+	return nil
+}
+
 // ytDlpInfo holds metadata from yt-dlp --write-info-json.
 type ytDlpInfo struct {
 	Title string `json:"title"`
@@ -127,6 +135,7 @@ func (s *YtDlpService) DownloadInstagram(sourceURL string) (*MediaResult, error)
 		"-o", outputTemplate,
 		sourceURL,
 	}
+	args = append(args, getCookiesArg()...)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
@@ -302,6 +311,7 @@ func (s *YtDlpService) downloadGeneric(sourceURL string) (*MediaResult, error) {
 		"-o", outputPath,
 		sourceURL,
 	}
+	args = append(args, getCookiesArg()...)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
@@ -346,7 +356,7 @@ func (s *YtDlpService) DownloadAudio(sourceURL string) (*MediaResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, s.bin,
+	args := []string{
 		"-x",
 		"--audio-format", "mp3",
 		"--audio-quality", "0",
@@ -356,7 +366,10 @@ func (s *YtDlpService) DownloadAudio(sourceURL string) (*MediaResult, error) {
 		"--write-info-json",
 		"-o", outputPath,
 		sourceURL,
-	)
+	}
+	args = append(args, getCookiesArg()...)
+
+	cmd := exec.CommandContext(ctx, s.bin, args...)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -393,7 +406,7 @@ func (s *YtDlpService) DownloadTikTok(sourceURL string) (*MediaResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, s.bin,
+	args := []string{
 		"-f", "best[ext=mp4]/best",
 		"--merge-output-format", "mp4",
 		"--max-filesize", maxSize,
@@ -402,7 +415,10 @@ func (s *YtDlpService) DownloadTikTok(sourceURL string) (*MediaResult, error) {
 		"--write-info-json",
 		"-o", outputPath,
 		sourceURL,
-	)
+	}
+	args = append(args, getCookiesArg()...)
+
+	cmd := exec.CommandContext(ctx, s.bin, args...)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {

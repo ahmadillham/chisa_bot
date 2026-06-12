@@ -60,6 +60,7 @@ func main() {
 	// Initialize handlers using the bot SQLite DB.
 	bannedStickerUserStore := services.NewBannedStickerUserStore(botDB)
 	bannedImageUserStore := services.NewBannedImageUserStore(botDB)
+	bannedChatUserStore := services.NewBannedChatUserStore(botDB)
 
 	pool := services.NewWorkerPool(config.MaxConcurrentMediaTasks)
 
@@ -69,6 +70,7 @@ func main() {
 	menuHandler := handlers.NewMenuHandler()
 	antiStickerHandler := handlers.NewAntiStickerHandler(bannedStickerUserStore, groupHandler)
 	antiImageHandler := handlers.NewAntiImageHandler(bannedImageUserStore, groupHandler)
+	antiChatHandler := handlers.NewAntiChatHandler(bannedChatUserStore, groupHandler)
 
 	limiter := ratelimit.New(
 		time.Duration(config.RateLimitUserCooldownSec)*time.Second,
@@ -102,6 +104,9 @@ func main() {
 	registry.Register("banimg", antiImageHandler.HandleBanImageUser)
 	registry.Register("unbanimg", antiImageHandler.HandleUnbanImageUser)
 
+	registry.Register("banchat", antiChatHandler.HandleBanChatUser)
+	registry.Register("unbanchat", antiChatHandler.HandleUnbanChatUser)
+
 	registry.Register("menu", wrap(menuHandler.HandleMenu))
 
 	// Register the main event handler.
@@ -116,7 +121,7 @@ func main() {
 						slog.Error("PANIC RECOVERED", "panic", r)
 					}
 				}()
-				handleMessage(client, evt, registry, antiStickerHandler, antiImageHandler, limiter)
+				handleMessage(client, evt, registry, antiStickerHandler, antiImageHandler, antiChatHandler, limiter)
 			}()
 
 		case *events.GroupInfo:
@@ -194,8 +199,13 @@ func handleMessage(
 	registry *handlers.Registry,
 	antiStickerHandler *handlers.AntiStickerHandler,
 	antiImageHandler *handlers.AntiImageHandler,
+	antiChatHandler *handlers.AntiChatHandler,
 	limiter *ratelimit.Limiter,
 ) {
+	// Anti-chat check: revoke ANY message from banned users BEFORE anything else.
+	if antiChatHandler.CheckAndRevoke(client, evt) {
+		return // Message was revoked, no further processing needed.
+	}
 	// Anti-sticker check: revoke stickers from banned users BEFORE anything else.
 	if antiStickerHandler.CheckAndRevoke(client, evt) {
 		return // Message was revoked, no further processing needed.
