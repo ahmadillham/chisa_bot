@@ -8,6 +8,7 @@ import (
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types/events"
 
+	"chisa_bot/internal/config"
 	"chisa_bot/internal/services"
 	"chisa_bot/pkg/utils"
 )
