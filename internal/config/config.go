@@ -31,10 +31,6 @@ const (
 	StickerAuthorName = "chisa_bot"
 )
 
-const (
-	MemeFontPath = "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf"
-)
-
 var MemeFontCandidates = []string{
 	"/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
 	"/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",

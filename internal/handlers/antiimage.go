@@ -44,8 +44,8 @@ func (h *AntiImageHandler) CheckAndRevoke(client *whatsmeow.Client, evt *events.
 		return false
 	}
 
-	// Check if the user is banned from sending images.
-	if h.userStore.IsBanned(evt.Info.Sender.ToNonAD().String()) {
+	// Check if the user is banned from sending images in this group.
+	if h.userStore.IsBanned(evt.Info.Sender.ToNonAD().String(), evt.Info.Chat.String()) {
 		slog.Info("Banned user sent image — revoking", "user", evt.Info.Sender.User, "chat", evt.Info.Chat.String())
 
 		// Revoke immediately
@@ -61,7 +61,7 @@ func (h *AntiImageHandler) CheckAndRevoke(client *whatsmeow.Client, evt *events.
 }
 
 // HandleBanImageUser bans a user from sending any image in the group (admin only).
-// Usage: reply or tag user with .banimguser @user
+// Usage: reply or tag user with .banimg @user
 func (h *AntiImageHandler) HandleBanImageUser(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if !evt.Info.IsGroup {
 		utils.ReplyTextDirect(client, evt, config.MsgOnlyGroup)
@@ -86,15 +86,16 @@ func (h *AntiImageHandler) HandleBanImageUser(client *whatsmeow.Client, evt *eve
 	}
 
 	targetStr := targetJID.ToNonAD().String()
+	groupStr := evt.Info.Chat.String()
 	mentionText := fmt.Sprintf("@%s sekarang dilarang mengirim gambar.", targetJID.ToNonAD().User)
-	if !h.userStore.Add(targetStr) {
+	if !h.userStore.Add(targetStr, groupStr) {
 		mentionText = fmt.Sprintf("@%s sudah ada di daftar larangan kirim gambar.", targetJID.ToNonAD().User)
 	}
 	utils.ReplyTextDirectWithMentions(client, evt, mentionText, []string{targetStr})
 }
 
 // HandleUnbanImageUser unbans a user, allowing them to send images again (admin only).
-// Usage: reply or tag user with .unbanimguser @user
+// Usage: reply or tag user with .unbanimg @user
 func (h *AntiImageHandler) HandleUnbanImageUser(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if !evt.Info.IsGroup {
 		utils.ReplyTextDirect(client, evt, config.MsgOnlyGroup)
@@ -113,8 +114,9 @@ func (h *AntiImageHandler) HandleUnbanImageUser(client *whatsmeow.Client, evt *e
 	}
 
 	targetStr := targetJID.ToNonAD().String()
+	groupStr := evt.Info.Chat.String()
 	mentionText := fmt.Sprintf("@%s sekarang diizinkan mengirim gambar kembali.", targetJID.ToNonAD().User)
-	if !h.userStore.Remove(targetStr) {
+	if !h.userStore.Remove(targetStr, groupStr) {
 		mentionText = fmt.Sprintf("@%s tidak ada di daftar larangan kirim gambar.", targetJID.ToNonAD().User)
 	}
 	utils.ReplyTextDirectWithMentions(client, evt, mentionText, []string{targetStr})

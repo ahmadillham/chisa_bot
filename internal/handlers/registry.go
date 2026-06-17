@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 
@@ -42,13 +41,7 @@ func (r *Registry) Execute(client *whatsmeow.Client, evt *events.Message, comman
 		return false
 	}
 
-	// Recover from panics in handlers to prevent crash
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Printf("[PANIC] Command %s: %v\n", command, r)
-		}
-	}()
-
+	// Panic recovery is handled by the goroutine in main.go's event handler.
 	handler(client, evt, args)
 	return true
 }

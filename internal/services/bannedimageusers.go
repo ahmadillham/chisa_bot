@@ -9,6 +9,7 @@ import (
 )
 
 // BannedImageUserStore manages a persistent list of user JIDs who are forbidden from sending images, using SQLite.
+// Bans are per-group: a user banned in one group is not affected in others.
 type BannedImageUserStore struct {
 	db *sql.DB
 }
@@ -19,7 +20,9 @@ func NewBannedImageUserStore(db *sql.DB) *BannedImageUserStore {
 
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS banned_image_users (
-			jid TEXT PRIMARY KEY
+			jid TEXT NOT NULL,
+			group_jid TEXT NOT NULL,
+			PRIMARY KEY (jid, group_jid)
 		)
 	`)
 	if err != nil {
@@ -27,19 +30,22 @@ func NewBannedImageUserStore(db *sql.DB) *BannedImageUserStore {
 		os.Exit(1)
 	}
 
+	// Migrate old schema (jid-only PK) to new schema (jid + group_jid).
+	migrateBanTable(db, "banned_image_users")
+
 	return store
 }
 
-// IsBanned checks if a user is in the banned image list.
-func (s *BannedImageUserStore) IsBanned(jid string) bool {
+// IsBanned checks if a user is banned from sending images in a specific group.
+func (s *BannedImageUserStore) IsBanned(jid string, groupJID string) bool {
 	var count int
-	err := s.db.QueryRow(`SELECT 1 FROM banned_image_users WHERE jid = ?`, jid).Scan(&count)
+	err := s.db.QueryRow(`SELECT 1 FROM banned_image_users WHERE jid = ? AND group_jid = ?`, jid, groupJID).Scan(&count)
 	return err == nil
 }
 
-// Add adds a user to the banned list. Returns true if newly added, false if already in list.
-func (s *BannedImageUserStore) Add(jid string) bool {
-	res, err := s.db.Exec(`INSERT OR IGNORE INTO banned_image_users (jid) VALUES (?)`, jid)
+// Add adds a user to the banned list for a specific group. Returns true if newly added, false if already in list.
+func (s *BannedImageUserStore) Add(jid string, groupJID string) bool {
+	res, err := s.db.Exec(`INSERT OR IGNORE INTO banned_image_users (jid, group_jid) VALUES (?, ?)`, jid, groupJID)
 	if err != nil {
 		slog.Error("Error adding user to image ban list", "error", err)
 		return false
@@ -48,9 +54,9 @@ func (s *BannedImageUserStore) Add(jid string) bool {
 	return rows > 0
 }
 
-// Remove removes a user from the banned list. Returns true if removed, false if they weren't in the list.
-func (s *BannedImageUserStore) Remove(jid string) bool {
-	res, err := s.db.Exec(`DELETE FROM banned_image_users WHERE jid = ?`, jid)
+// Remove removes a user from the banned list for a specific group. Returns true if removed, false if they weren't in the list.
+func (s *BannedImageUserStore) Remove(jid string, groupJID string) bool {
+	res, err := s.db.Exec(`DELETE FROM banned_image_users WHERE jid = ? AND group_jid = ?`, jid, groupJID)
 	if err != nil {
 		slog.Error("Error removing user from image ban list", "error", err)
 		return false
@@ -59,16 +65,16 @@ func (s *BannedImageUserStore) Remove(jid string) bool {
 	return rows > 0
 }
 
-// Count returns the number of banned users.
-func (s *BannedImageUserStore) Count() int {
+// Count returns the number of banned users in a specific group.
+func (s *BannedImageUserStore) Count(groupJID string) int {
 	var count int
-	_ = s.db.QueryRow(`SELECT COUNT(*) FROM banned_image_users`).Scan(&count)
+	_ = s.db.QueryRow(`SELECT COUNT(*) FROM banned_image_users WHERE group_jid = ?`, groupJID).Scan(&count)
 	return count
 }
 
-// ListFormatted returns a formatted list of all banned users.
-func (s *BannedImageUserStore) ListFormatted() string {
-	rows, err := s.db.Query(`SELECT jid FROM banned_image_users ORDER BY jid ASC`)
+// ListFormatted returns a formatted list of all banned users in a specific group.
+func (s *BannedImageUserStore) ListFormatted(groupJID string) string {
+	rows, err := s.db.Query(`SELECT jid FROM banned_image_users WHERE group_jid = ? ORDER BY jid ASC`, groupJID)
 	if err != nil {
 		return "Error membaca database user."
 	}
@@ -83,6 +89,9 @@ func (s *BannedImageUserStore) ListFormatted() string {
 			lines = append(lines, fmt.Sprintf("%d. @%s", i, displayJID))
 			i++
 		}
+	}
+	if err := rows.Err(); err != nil {
+		slog.Error("Error iterating banned image users", "error", err)
 	}
 
 	if len(lines) == 0 {

@@ -28,9 +28,11 @@ func NewFFmpegService() *FFmpegService {
 		}
 	}
 	if f.fontPath == "" {
-		// Fallback to the default hardcoded one if all else fails,
+		// Fallback to the first candidate if all else fails,
 		// though it will likely fail during execution too.
-		f.fontPath = config.MemeFontPath
+		if len(config.MemeFontCandidates) > 0 {
+			f.fontPath = config.MemeFontCandidates[0]
+		}
 	}
 	return f
 }

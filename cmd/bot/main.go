@@ -56,6 +56,7 @@ func main() {
 		slog.Error("Failed to initialize bot DB", "error", err)
 		os.Exit(1)
 	}
+	defer botDB.Close()
 
 	// Initialize handlers using the bot SQLite DB.
 	bannedStickerUserStore := services.NewBannedStickerUserStore(botDB)
@@ -88,6 +89,7 @@ func main() {
 	// Initialize Registry
 	registry := handlers.NewRegistry()
 	registry.Register("s", wrap(mediaHandler.HandleSticker))
+	registry.Register("sticker", wrap(mediaHandler.HandleSticker))
 	registry.Register("toimg", wrap(mediaHandler.HandleImage))
 	registry.Register("ts", mediaHandler.HandleTextSticker)
 	registry.Register("brat", mediaHandler.HandleBrat)
@@ -146,8 +148,12 @@ func main() {
 		}
 	})
 
+	// Create a cancellable context for background services
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// Start temporary files auto-cleaner (hourly scan, delete files older than 1 hour)
-	services.StartTempCleaner(1*time.Hour, 1*time.Hour)
+	services.StartTempCleaner(ctx, 1*time.Hour, 1*time.Hour)
 
 	// Connect to WhatsApp.
 	if client.Store.ID == nil {

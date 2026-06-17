@@ -42,6 +42,11 @@ func (h *DownloaderHandler) HandleVideo(client *whatsmeow.Client, evt *events.Me
 	}
 
 	url := args[0]
+	if !config.ValidateURL(url) {
+		utils.ReplyTextDirect(client, evt, "URL tidak valid. Pastikan menggunakan link yang benar (http/https).")
+		return
+	}
+
 	utils.ReplyTextDirect(client, evt, "Sedang memproses media...")
 
 	// Use the smart "DownloadAny" service.
@@ -88,6 +93,11 @@ func (h *DownloaderHandler) HandleAudio(client *whatsmeow.Client, evt *events.Me
 	}
 
 	url := args[0]
+	if !config.ValidateURL(url) {
+		utils.ReplyTextDirect(client, evt, "URL tidak valid. Pastikan menggunakan link yang benar (http/https).")
+		return
+	}
+
 	utils.ReplyTextDirect(client, evt, "Sedang mengambil audio...")
 
 	result, err := h.ytdlp.DownloadAudio(url)

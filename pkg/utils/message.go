@@ -309,68 +309,42 @@ func IsMediaMessage(msg *waProto.Message) bool {
 }
 
 // GetTargetJID tries to extract a target JID from message mentions or quotes.
+// Checks all message types that can carry ContextInfo (text, image, video, sticker, document).
 func GetTargetJID(evt *events.Message) (types.JID, bool) {
-	var targetJID types.JID
-	found := false
+	// Collect all possible ContextInfo sources.
+	var ctxInfos []*waProto.ContextInfo
 
-	if evt.Message.GetExtendedTextMessage() != nil {
-		ctxInfo := evt.Message.GetExtendedTextMessage().GetContextInfo()
-		
-		// 1. Mention
-		mentionList := ctxInfo.GetMentionedJID()
-		if len(mentionList) > 0 {
-			targetJID, _ = types.ParseJID(mentionList[0])
-			found = true
-		} else if ctxInfo.Participant != nil {
-			// 2. Reply
-			targetJID, _ = types.ParseJID(*ctxInfo.Participant)
-			found = true
-		}
+	if ext := evt.Message.GetExtendedTextMessage(); ext != nil {
+		ctxInfos = append(ctxInfos, ext.GetContextInfo())
 	}
-	
-	return targetJID, found
-}
+	if img := evt.Message.GetImageMessage(); img != nil {
+		ctxInfos = append(ctxInfos, img.GetContextInfo())
+	}
+	if vid := evt.Message.GetVideoMessage(); vid != nil {
+		ctxInfos = append(ctxInfos, vid.GetContextInfo())
+	}
+	if stk := evt.Message.GetStickerMessage(); stk != nil {
+		ctxInfos = append(ctxInfos, stk.GetContextInfo())
+	}
+	if doc := evt.Message.GetDocumentMessage(); doc != nil {
+		ctxInfos = append(ctxInfos, doc.GetContextInfo())
+	}
 
-// GetNestedQuotedMessage returns the quoted message inside a quoted message (grandparent message).
-func GetNestedQuotedMessage(evt *events.Message) *waProto.Message {
-	firstQuote := GetQuotedMessage(evt)
-	if firstQuote == nil {
-		return nil
-	}
-	
-	// Unwrap view once just in case
-	firstQuote = UnwrapViewOnce(firstQuote)
-	
-	if ext := firstQuote.GetExtendedTextMessage(); ext != nil {
-		if ctx := ext.GetContextInfo(); ctx != nil {
-			return ctx.GetQuotedMessage()
+	for _, ctxInfo := range ctxInfos {
+		if ctxInfo == nil {
+			continue
+		}
+		// 1. Check mention list first.
+		if mentionList := ctxInfo.GetMentionedJID(); len(mentionList) > 0 {
+			targetJID, _ := types.ParseJID(mentionList[0])
+			return targetJID, true
+		}
+		// 2. Fallback to quoted message participant.
+		if ctxInfo.Participant != nil {
+			targetJID, _ := types.ParseJID(*ctxInfo.Participant)
+			return targetJID, true
 		}
 	}
-	if img := firstQuote.GetImageMessage(); img != nil {
-		if ctx := img.GetContextInfo(); ctx != nil {
-			return ctx.GetQuotedMessage()
-		}
-	}
-	if vid := firstQuote.GetVideoMessage(); vid != nil {
-		if ctx := vid.GetContextInfo(); ctx != nil {
-			return ctx.GetQuotedMessage()
-		}
-	}
-	if doc := firstQuote.GetDocumentMessage(); doc != nil {
-		if ctx := doc.GetContextInfo(); ctx != nil {
-			return ctx.GetQuotedMessage()
-		}
-	}
-	if aud := firstQuote.GetAudioMessage(); aud != nil {
-		if ctx := aud.GetContextInfo(); ctx != nil {
-			return ctx.GetQuotedMessage()
-		}
-	}
-	if stk := firstQuote.GetStickerMessage(); stk != nil {
-		if ctx := stk.GetContextInfo(); ctx != nil {
-			return ctx.GetQuotedMessage()
-		}
-	}
-	
-	return nil
+
+	return types.JID{}, false
 }

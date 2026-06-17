@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -403,6 +404,10 @@ func (s *YtDlpService) DownloadAudio(sourceURL string) (*MediaResult, error) {
 
 // DownloadTikTok downloads a TikTok video without watermark.
 func (s *YtDlpService) DownloadTikTok(sourceURL string) (*MediaResult, error) {
+	if !config.ValidateURL(sourceURL) {
+		return nil, fmt.Errorf("invalid or unsafe URL")
+	}
+
 	tmpDir, err := os.MkdirTemp("", "chisabot-dl-*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp dir: %w", err)

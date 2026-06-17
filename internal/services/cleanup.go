@@ -10,14 +10,19 @@ import (
 
 // StartTempCleaner runs a background goroutine that periodically scans the OS temp directory
 // and removes any 'chisabot-*' directories/files that are older than maxAge.
-func StartTempCleaner(interval time.Duration, maxAge time.Duration) {
+func StartTempCleaner(ctx context.Context, interval time.Duration, maxAge time.Duration) {
 	tempDir := os.TempDir()
 
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
-		for range ticker.C {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
 			entries, err := os.ReadDir(tempDir)
 			if err != nil {
 				slog.Error("failed to read temp dir", "error", err)
