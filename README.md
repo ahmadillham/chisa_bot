@@ -186,3 +186,4 @@ To keep the bot running in the background and automatically restart on failure o
 | `CGO_ENABLED` error         | Install GCC: `sudo apt install build-essential` |
 | QR code timeout             | Restart the bot and scan faster                 |
 | Session expired             | Delete `session.db` and re-scan QR              |
+| `Client outdated (405)`     | Update library: `go get -u go.mau.fi/whatsmeow@latest` lalu build ulang |
