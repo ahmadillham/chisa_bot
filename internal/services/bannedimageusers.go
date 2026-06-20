@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// BannedImageUserStore manages a persistent list of user JIDs who are forbidden from sending images, using SQLite.
+// BannedImageUserStore manages a persistent list of user JIDs who are forbidden from sending image/video/GIF media, using SQLite.
 // Bans are per-group: a user banned in one group is not affected in others.
 type BannedImageUserStore struct {
 	db *sql.DB
@@ -36,7 +36,7 @@ func NewBannedImageUserStore(db *sql.DB) *BannedImageUserStore {
 	return store
 }
 
-// IsBanned checks if a user is banned from sending images in a specific group.
+// IsBanned checks if a user is banned from sending image/video/GIF media in a specific group.
 func (s *BannedImageUserStore) IsBanned(jid string, groupJID string) bool {
 	var count int
 	err := s.db.QueryRow(`SELECT 1 FROM banned_image_users WHERE jid = ? AND group_jid = ?`, jid, groupJID).Scan(&count)
@@ -72,7 +72,7 @@ func (s *BannedImageUserStore) Count(groupJID string) int {
 	return count
 }
 
-// ListFormatted returns a formatted list of all banned users in a specific group.
+// ListFormatted returns a formatted list of all image/video/GIF-banned users in a specific group.
 func (s *BannedImageUserStore) ListFormatted(groupJID string) string {
 	rows, err := s.db.Query(`SELECT jid FROM banned_image_users WHERE group_jid = ? ORDER BY jid ASC`, groupJID)
 	if err != nil {
@@ -95,7 +95,7 @@ func (s *BannedImageUserStore) ListFormatted(groupJID string) string {
 	}
 
 	if len(lines) == 0 {
-		return "Tidak ada user yang di-ban pengiriman gambarnya."
+		return "Tidak ada user yang di-ban pengiriman gambar/video/GIF."
 	}
 	return strings.Join(lines, "\n")
 }
