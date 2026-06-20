@@ -91,7 +91,6 @@ func main() {
 	registry.Register("s", wrap(mediaHandler.HandleSticker))
 	registry.Register("sticker", wrap(mediaHandler.HandleSticker))
 	registry.Register("toimg", wrap(mediaHandler.HandleImage))
-	registry.Register("ts", mediaHandler.HandleTextSticker)
 	registry.Register("brat", mediaHandler.HandleBrat)
 
 	registry.Register("dl", dlHandler.HandleVideo)

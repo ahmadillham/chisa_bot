@@ -45,8 +45,8 @@ func (h *AntiImageHandler) CheckAndRevoke(client *whatsmeow.Client, evt *events.
 		return false
 	}
 
-	// Check if the user is banned from sending image/video/GIF media in this group.
-	if h.userStore.IsBanned(evt.Info.Sender.ToNonAD().String(), evt.Info.Chat.String()) {
+	// Check if the user is globally banned from sending image/video/GIF media.
+	if h.userStore.IsBanned(evt.Info.Sender.ToNonAD().String()) {
 		slog.Info("Banned user sent image/video/GIF media — revoking", "user", evt.Info.Sender.User, "chat", evt.Info.Chat.String())
 
 		// Revoke immediately
@@ -93,7 +93,7 @@ func isImageBanMedia(msg *waProto.Message) bool {
 	return false
 }
 
-// HandleBanImageUser bans a user from sending image/video/GIF media in the group (admin only).
+// HandleBanImageUser bans a user from sending image/video/GIF media in all groups (admin only).
 // Usage: reply or tag user with .banimg @user
 func (h *AntiImageHandler) HandleBanImageUser(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if !evt.Info.IsGroup {
@@ -119,15 +119,14 @@ func (h *AntiImageHandler) HandleBanImageUser(client *whatsmeow.Client, evt *eve
 	}
 
 	targetStr := targetJID.ToNonAD().String()
-	groupStr := evt.Info.Chat.String()
-	mentionText := fmt.Sprintf("@%s sekarang dilarang mengirim gambar/video/GIF.", targetJID.ToNonAD().User)
-	if !h.userStore.Add(targetStr, groupStr) {
-		mentionText = fmt.Sprintf("@%s sudah ada di daftar larangan kirim gambar/video/GIF.", targetJID.ToNonAD().User)
+	mentionText := fmt.Sprintf("@%s sekarang dilarang mengirim gambar/video/GIF di semua grup.", targetJID.ToNonAD().User)
+	if !h.userStore.Add(targetStr) {
+		mentionText = fmt.Sprintf("@%s sudah ada di daftar larangan kirim gambar/video/GIF global.", targetJID.ToNonAD().User)
 	}
 	utils.ReplyTextDirectWithMentions(client, evt, mentionText, []string{targetStr})
 }
 
-// HandleUnbanImageUser unbans a user, allowing them to send image/video/GIF media again (admin only).
+// HandleUnbanImageUser unbans a user, allowing them to send image/video/GIF media again in all groups (admin only).
 // Usage: reply or tag user with .unbanimg @user
 func (h *AntiImageHandler) HandleUnbanImageUser(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if !evt.Info.IsGroup {
@@ -147,10 +146,9 @@ func (h *AntiImageHandler) HandleUnbanImageUser(client *whatsmeow.Client, evt *e
 	}
 
 	targetStr := targetJID.ToNonAD().String()
-	groupStr := evt.Info.Chat.String()
-	mentionText := fmt.Sprintf("@%s sekarang diizinkan mengirim gambar/video/GIF kembali.", targetJID.ToNonAD().User)
-	if !h.userStore.Remove(targetStr, groupStr) {
-		mentionText = fmt.Sprintf("@%s tidak ada di daftar larangan kirim gambar/video/GIF.", targetJID.ToNonAD().User)
+	mentionText := fmt.Sprintf("@%s sekarang diizinkan mengirim gambar/video/GIF kembali di semua grup.", targetJID.ToNonAD().User)
+	if !h.userStore.Remove(targetStr) {
+		mentionText = fmt.Sprintf("@%s tidak ada di daftar larangan kirim gambar/video/GIF global.", targetJID.ToNonAD().User)
 	}
 	utils.ReplyTextDirectWithMentions(client, evt, mentionText, []string{targetStr})
 }

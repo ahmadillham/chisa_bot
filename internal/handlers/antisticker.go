@@ -43,8 +43,8 @@ func (h *AntiStickerHandler) CheckAndRevoke(client *whatsmeow.Client, evt *event
 		return false
 	}
 
-	// 1. Check if the user is banned from sending stickers in this group.
-	if h.userStore.IsBanned(evt.Info.Sender.ToNonAD().String(), evt.Info.Chat.String()) {
+	// 1. Check if the user is globally banned from sending stickers.
+	if h.userStore.IsBanned(evt.Info.Sender.ToNonAD().String()) {
 		slog.Info("Banned user sent sticker — revoking", "user", evt.Info.Sender.User, "chat", evt.Info.Chat.String())
 
 		// Revoke immediately
@@ -59,7 +59,7 @@ func (h *AntiStickerHandler) CheckAndRevoke(client *whatsmeow.Client, evt *event
 	return false
 }
 
-// HandleBanStickerUser bans a user from sending any sticker in the group (admin only).
+// HandleBanStickerUser bans a user from sending any sticker in all groups (admin only).
 // Usage: reply or tag user with .bansticker @user
 func (h *AntiStickerHandler) HandleBanStickerUser(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if !evt.Info.IsGroup {
@@ -85,15 +85,14 @@ func (h *AntiStickerHandler) HandleBanStickerUser(client *whatsmeow.Client, evt 
 	}
 
 	targetStr := targetJID.ToNonAD().String()
-	groupStr := evt.Info.Chat.String()
-	mentionText := fmt.Sprintf("@%s sekarang dilarang mengirim sticker.", targetJID.ToNonAD().User)
-	if !h.userStore.Add(targetStr, groupStr) {
-		mentionText = fmt.Sprintf("@%s sudah ada di daftar larangan.", targetJID.ToNonAD().User)
+	mentionText := fmt.Sprintf("@%s sekarang dilarang mengirim sticker di semua grup.", targetJID.ToNonAD().User)
+	if !h.userStore.Add(targetStr) {
+		mentionText = fmt.Sprintf("@%s sudah ada di daftar larangan sticker global.", targetJID.ToNonAD().User)
 	}
 	utils.ReplyTextDirectWithMentions(client, evt, mentionText, []string{targetStr})
 }
 
-// HandleUnbanStickerUser unbans a user, allowing them to send stickers again (admin only).
+// HandleUnbanStickerUser unbans a user, allowing them to send stickers again in all groups (admin only).
 // Usage: reply or tag user with .unbansticker @user
 func (h *AntiStickerHandler) HandleUnbanStickerUser(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if !evt.Info.IsGroup {
@@ -113,10 +112,9 @@ func (h *AntiStickerHandler) HandleUnbanStickerUser(client *whatsmeow.Client, ev
 	}
 
 	targetStr := targetJID.ToNonAD().String()
-	groupStr := evt.Info.Chat.String()
-	mentionText := fmt.Sprintf("@%s sekarang diizinkan mengirim sticker kembali.", targetJID.ToNonAD().User)
-	if !h.userStore.Remove(targetStr, groupStr) {
-		mentionText = fmt.Sprintf("@%s tidak ada di daftar larangan.", targetJID.ToNonAD().User)
+	mentionText := fmt.Sprintf("@%s sekarang diizinkan mengirim sticker kembali di semua grup.", targetJID.ToNonAD().User)
+	if !h.userStore.Remove(targetStr) {
+		mentionText = fmt.Sprintf("@%s tidak ada di daftar larangan sticker global.", targetJID.ToNonAD().User)
 	}
 	utils.ReplyTextDirectWithMentions(client, evt, mentionText, []string{targetStr})
 }

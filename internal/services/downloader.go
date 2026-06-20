@@ -23,7 +23,6 @@ type MediaResult struct {
 	Type     string // "video", "audio", "image"
 	Mimetype string
 	Data     []byte
-	FilePath string
 }
 
 // YtDlpService wraps yt-dlp CLI for downloading media from various platforms.

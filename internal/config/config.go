@@ -19,7 +19,6 @@ var (
 	RateLimitChatWindowSec   = 60
 	MaxFileSizeMB            = 100
 	MaxAudioSizeMB           = 50
-	MaxVideoStickerSec       = 8
 	MaxConcurrentMediaTasks  = 4
 	OwnerJIDs                []string // JIDs of the bot owners
 	AdminExceptions          []string // JIDs of users with admin privileges
@@ -31,17 +30,8 @@ const (
 	StickerAuthorName = "chisa_bot"
 )
 
-var MemeFontCandidates = []string{
-	"/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
-	"/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-	"/usr/share/fonts/TTF/LiberationSans-Bold.ttf",
-	"/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-	"C:\\Windows\\Fonts\\arialbd.ttf",
-}
-
 // Rate limit and system messages.
 const (
-	MsgQueueLimit    = "Permintaan sedang diproses, mohon tunggu antrean..."
 	MsgRateLimitUser = "Terlalu cepat, tunggu beberapa detik."
 	MsgRateLimitChat = "Terlalu banyak perintah di chat ini, coba lagi nanti."
 )
@@ -99,11 +89,6 @@ func Load() {
 	if v := os.Getenv("MAX_AUDIO_SIZE_MB"); v != "" {
 		if val, err := strconv.Atoi(v); err == nil {
 			MaxAudioSizeMB = val
-		}
-	}
-	if v := os.Getenv("MAX_VIDEO_STICKER_SEC"); v != "" {
-		if val, err := strconv.Atoi(v); err == nil {
-			MaxVideoStickerSec = val
 		}
 	}
 

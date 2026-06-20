@@ -11,7 +11,6 @@ type ParseResult struct {
 	Prefix  string
 	Command string
 	Args    []string
-	RawArgs string
 }
 
 // Parse attempts to parse a command from the given text.
@@ -35,16 +34,11 @@ func Parse(text string) *ParseResult {
 
 			cmd := strings.ToLower(parts[0])
 			args := parts[1:]
-			rawArgs := ""
-			if len(args) > 0 {
-				rawArgs = strings.TrimSpace(strings.TrimPrefix(body, parts[0]))
-			}
 
 			return &ParseResult{
 				Prefix:  prefix,
 				Command: cmd,
 				Args:    args,
-				RawArgs: rawArgs,
 			}
 		}
 	}

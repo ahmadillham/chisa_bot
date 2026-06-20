@@ -9,32 +9,14 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"chisa_bot/internal/config"
 )
 
 // FFmpegService provides methods to convert media using ffmpeg.
-type FFmpegService struct {
-	fontPath string
-}
+type FFmpegService struct{}
 
-// NewFFmpegService creates a new FFmpegService and auto-discovers a suitable font.
+// NewFFmpegService creates a new FFmpegService.
 func NewFFmpegService() *FFmpegService {
-	f := &FFmpegService{}
-	for _, path := range config.MemeFontCandidates {
-		if _, err := os.Stat(path); err == nil {
-			f.fontPath = path
-			break
-		}
-	}
-	if f.fontPath == "" {
-		// Fallback to the first candidate if all else fails,
-		// though it will likely fail during execution too.
-		if len(config.MemeFontCandidates) > 0 {
-			f.fontPath = config.MemeFontCandidates[0]
-		}
-	}
-	return f
+	return &FFmpegService{}
 }
 
 // ImageToWebP converts an image (JPEG/PNG) to a static WebP sticker (512x512 max).
@@ -172,164 +154,6 @@ func (f *FFmpegService) WebPToImage(inputData []byte) ([]byte, error) {
 	}
 
 	return os.ReadFile(outputPath)
-}
-
-
-// wrapText inserts line breaks so text fits approximately within maxChars per line.
-func wrapText(text string, maxChars int) string {
-	words := strings.Fields(text)
-	if len(words) == 0 {
-		return ""
-	}
-	var lines []string
-	currentLine := words[0]
-	for _, word := range words[1:] {
-		if len(currentLine)+1+len(word) <= maxChars {
-			currentLine += " " + word
-		} else {
-			lines = append(lines, currentLine)
-			currentLine = word
-		}
-	}
-	lines = append(lines, currentLine)
-	return strings.Join(lines, "\n")
-}
-
-// calculateFontSize calculates the optimal font size based on the longest line.
-func calculateFontSize(wrappedText string) int {
-	maxLen := 0
-	for _, line := range strings.Split(wrappedText, "\n") {
-		l := len([]rune(line))
-		if l > maxLen {
-			maxLen = l
-		}
-	}
-
-	fontSize := 72
-	if maxLen > 10 {
-		fontSize = int(float64(72) * (10.0 / float64(maxLen)))
-	}
-	if fontSize < 20 {
-		fontSize = 20
-	}
-	return fontSize
-}
-
-// AddTextToWebP overlays meme-style bottom text onto a WebP sticker.
-// It supports both static and animated inputs (GIF/Video/WebP).
-func (f *FFmpegService) AddTextToWebP(inputData []byte, text string, ext string, isAnimated bool) ([]byte, error) {
-	tmpDir, err := os.MkdirTemp("", "chisabot-ts-*")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create temp dir: %w", err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	if ext == "" {
-		ext = ".webp"
-	}
-	inputPath := filepath.Join(tmpDir, "input"+ext)
-	outputPath := filepath.Join(tmpDir, "output.webp")
-
-	if err := os.WriteFile(inputPath, inputData, 0644); err != nil {
-		return nil, fmt.Errorf("failed to write input: %w", err)
-	}
-
-	var bottomText, topText string
-	// Support both comma and pipe as separators
-	normalizedText := strings.ReplaceAll(text, ",", "|")
-	parts := strings.Split(normalizedText, "|")
-
-	if len(parts) > 1 {
-		topText = strings.TrimSpace(parts[0])
-		bottomText = strings.TrimSpace(parts[1])
-	} else {
-		bottomText = strings.TrimSpace(parts[0])
-	}
-
-	// Scale first, then draw text on the scaled image bounds, THEN pad to 512x512.
-	drawFilter := "scale='if(gt(iw,ih),510,-2)':'if(gt(iw,ih),-2,510)',format=bgra"
-
-	// If animated, limit FPS and add fps filter early
-	if isAnimated {
-		drawFilter += ",fps=15"
-	}
-
-	// Double-escape backslashes for FFmpeg's drawtext fontfile path
-	fontPath := strings.ReplaceAll(f.fontPath, `\`, `\\`)
-	fontPath = strings.ReplaceAll(fontPath, `:`, `\:`)
-
-	if topText != "" {
-		wrappedTop := wrapText(topText, 15)
-		fontSizeTop := calculateFontSize(wrappedTop)
-		safeTop := escapeFfmpegText(wrappedTop)
-		borderW := fontSizeTop / 12
-		if borderW < 2 {
-			borderW = 2
-		}
-		drawFilter += fmt.Sprintf(",drawtext=fontfile='%s':text='%s':fontcolor=white:fontsize=%d:bordercolor=black:borderw=%d:x=(w-text_w)/2:y=10:line_spacing=5:text_align=C", fontPath, safeTop, fontSizeTop, borderW)
-	}
-
-	if bottomText != "" {
-		wrappedBottom := wrapText(bottomText, 15)
-		fontSizeBottom := calculateFontSize(wrappedBottom)
-		safeBottom := escapeFfmpegText(wrappedBottom)
-		borderW := fontSizeBottom / 12
-		if borderW < 2 {
-			borderW = 2
-		}
-		drawFilter += fmt.Sprintf(",drawtext=fontfile='%s':text='%s':fontcolor=white:fontsize=%d:bordercolor=black:borderw=%d:x=(w-text_w)/2:y=h-text_h-10:line_spacing=5:text_align=C", fontPath, safeBottom, fontSizeBottom, borderW)
-	}
-
-	// Pad to 512x512 after drawing text
-	drawFilter += ",pad=512:512:(512-iw)/2:(512-ih)/2:color=0x00000000"
-
-	ffmpegArgs := []string{"-i", inputPath}
-
-	if isAnimated {
-		ffmpegArgs = append(ffmpegArgs, "-t", "8")
-	}
-
-	ffmpegArgs = append(ffmpegArgs,
-		"-vf", drawFilter,
-		"-c:v", "libwebp",
-		"-preset", "default",
-	)
-
-	if isAnimated {
-		ffmpegArgs = append(ffmpegArgs, "-quality", "50", "-compression_level", "6")
-	} else {
-		ffmpegArgs = append(ffmpegArgs, "-quality", "80")
-	}
-
-	ffmpegArgs = append(ffmpegArgs,
-		"-loop", "0",
-		"-an", "-vsync", "0",
-		"-y", outputPath,
-	)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "ffmpeg", ffmpegArgs...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		slog.Info("Filter chain", "val", drawFilter)
-		return nil, fmt.Errorf("ffmpeg ts failed: %w\nOutput: %s", err, string(output))
-	}
-
-	return os.ReadFile(outputPath)
-}
-
-// escapeFfmpegText escapes characters that are special in FFmpeg drawtext.
-func escapeFfmpegText(s string) string {
-	// Order matters: escape backslash first.
-	s = strings.ReplaceAll(s, `\`, `\\`)
-	s = strings.ReplaceAll(s, "'", `\'`)
-	s = strings.ReplaceAll(s, ":", `\:`)
-	s = strings.ReplaceAll(s, "[", `\[`)
-	s = strings.ReplaceAll(s, "]", `\]`)
-	s = strings.ReplaceAll(s, ";", `\;`)
-	s = strings.ReplaceAll(s, "%", "%%")
-	return s
 }
 
 // GenerateBratSticker generates a brat-style sticker (white background, black Arial/sans text, auto-wrapped).

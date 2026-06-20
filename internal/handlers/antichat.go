@@ -38,8 +38,8 @@ func (h *AntiChatHandler) CheckAndRevoke(client *whatsmeow.Client, evt *events.M
 		return false
 	}
 
-	// Check if the user is banned from sending chat in this group.
-	if h.userStore.IsBanned(evt.Info.Sender.ToNonAD().String(), evt.Info.Chat.String()) {
+	// Check if the user is globally banned from sending chat.
+	if h.userStore.IsBanned(evt.Info.Sender.ToNonAD().String()) {
 		slog.Info("Banned user sent chat — revoking", "user", evt.Info.Sender.User, "chat", evt.Info.Chat.String())
 
 		// Revoke immediately
@@ -54,7 +54,7 @@ func (h *AntiChatHandler) CheckAndRevoke(client *whatsmeow.Client, evt *events.M
 	return false
 }
 
-// HandleBanChatUser bans a user from sending any chat in the group (admin only).
+// HandleBanChatUser bans a user from sending any chat in all groups (admin only).
 // Usage: reply or tag user with .banchat @user
 func (h *AntiChatHandler) HandleBanChatUser(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if !evt.Info.IsGroup {
@@ -80,15 +80,14 @@ func (h *AntiChatHandler) HandleBanChatUser(client *whatsmeow.Client, evt *event
 	}
 
 	targetStr := targetJID.ToNonAD().String()
-	groupStr := evt.Info.Chat.String()
-	mentionText := fmt.Sprintf("@%s sekarang dilarang mengirim chat.", targetJID.ToNonAD().User)
-	if !h.userStore.Add(targetStr, groupStr) {
-		mentionText = fmt.Sprintf("@%s sudah ada di daftar larangan kirim chat.", targetJID.ToNonAD().User)
+	mentionText := fmt.Sprintf("@%s sekarang dilarang mengirim chat di semua grup.", targetJID.ToNonAD().User)
+	if !h.userStore.Add(targetStr) {
+		mentionText = fmt.Sprintf("@%s sudah ada di daftar larangan kirim chat global.", targetJID.ToNonAD().User)
 	}
 	utils.ReplyTextDirectWithMentions(client, evt, mentionText, []string{targetStr})
 }
 
-// HandleUnbanChatUser unbans a user, allowing them to send chat again (admin only).
+// HandleUnbanChatUser unbans a user, allowing them to send chat again in all groups (admin only).
 // Usage: reply or tag user with .unbanchat @user
 func (h *AntiChatHandler) HandleUnbanChatUser(client *whatsmeow.Client, evt *events.Message, args []string) {
 	if !evt.Info.IsGroup {
@@ -108,10 +107,9 @@ func (h *AntiChatHandler) HandleUnbanChatUser(client *whatsmeow.Client, evt *eve
 	}
 
 	targetStr := targetJID.ToNonAD().String()
-	groupStr := evt.Info.Chat.String()
-	mentionText := fmt.Sprintf("@%s sekarang diizinkan mengirim chat kembali.", targetJID.ToNonAD().User)
-	if !h.userStore.Remove(targetStr, groupStr) {
-		mentionText = fmt.Sprintf("@%s tidak ada di daftar larangan kirim chat.", targetJID.ToNonAD().User)
+	mentionText := fmt.Sprintf("@%s sekarang diizinkan mengirim chat kembali di semua grup.", targetJID.ToNonAD().User)
+	if !h.userStore.Remove(targetStr) {
+		mentionText = fmt.Sprintf("@%s tidak ada di daftar larangan kirim chat global.", targetJID.ToNonAD().User)
 	}
 	utils.ReplyTextDirectWithMentions(client, evt, mentionText, []string{targetStr})
 }

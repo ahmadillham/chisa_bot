@@ -3,17 +3,17 @@ package services
 import (
 	"database/sql"
 	"log/slog"
+	"strings"
 )
 
-// migrateBanTable migrates a ban table from the old schema (jid-only PK)
-// to the new schema (jid + group_jid composite PK).
-// If the table already has the new schema, this is a no-op.
-func migrateBanTable(db *sql.DB, tableName string) {
+// ensureGlobalBanTable migrates a ban table to the global schema (jid-only PK).
+// Existing per-group entries are collapsed to distinct JIDs, making prior bans global.
+func ensureGlobalBanTable(db *sql.DB, tableName string) error {
 	// Check if group_jid column exists by querying PRAGMA.
 	var hasGroupJID bool
 	rows, err := db.Query(`PRAGMA table_info(` + tableName + `)`)
 	if err != nil {
-		return
+		return err
 	}
 	defer rows.Close()
 
@@ -32,51 +32,56 @@ func migrateBanTable(db *sql.DB, tableName string) {
 		}
 	}
 
-	if hasGroupJID {
-		return // Already migrated.
+	if !hasGroupJID {
+		return nil
 	}
 
-	slog.Info("Migrating ban table to per-group schema", "table", tableName)
+	slog.Info("Migrating ban table to global schema", "table", tableName)
 
-	// Old schema only had `jid TEXT PRIMARY KEY`.
-	// We need to recreate the table with the new composite PK.
-	// Old entries without group_jid context are dropped (admins need to re-ban per group).
 	tx, err := db.Begin()
 	if err != nil {
-		slog.Error("Failed to start migration transaction", "table", tableName, "error", err)
-		return
+		return err
 	}
 
-	// Count old entries for logging.
-	var count int
-	_ = tx.QueryRow(`SELECT COUNT(*) FROM ` + tableName).Scan(&count)
+	tableIdent := quoteSQLiteIdent(tableName)
+	tempIdent := quoteSQLiteIdent(tableName + "_global_migration")
 
-	// Drop old table and recreate with new schema.
-	_, err = tx.Exec(`DROP TABLE IF EXISTS ` + tableName)
-	if err != nil {
+	if _, err = tx.Exec(`DROP TABLE IF EXISTS ` + tempIdent); err != nil {
 		_ = tx.Rollback()
-		slog.Error("Failed to drop old table", "table", tableName, "error", err)
-		return
+		return err
 	}
 
-	_, err = tx.Exec(`CREATE TABLE ` + tableName + ` (
-		jid TEXT NOT NULL,
-		group_jid TEXT NOT NULL,
-		PRIMARY KEY (jid, group_jid)
-	)`)
+	if _, err = tx.Exec(`CREATE TABLE ` + tempIdent + ` (jid TEXT PRIMARY KEY)`); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	res, err := tx.Exec(`INSERT OR IGNORE INTO ` + tempIdent + ` (jid)
+		SELECT DISTINCT jid FROM ` + tableIdent + ` WHERE jid IS NOT NULL AND jid != ''`)
 	if err != nil {
 		_ = tx.Rollback()
-		slog.Error("Failed to create new table", "table", tableName, "error", err)
-		return
+		return err
+	}
+	migrated, _ := res.RowsAffected()
+
+	if _, err = tx.Exec(`DROP TABLE ` + tableIdent); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	if _, err = tx.Exec(`ALTER TABLE ` + tempIdent + ` RENAME TO ` + tableIdent); err != nil {
+		_ = tx.Rollback()
+		return err
 	}
 
 	if err := tx.Commit(); err != nil {
-		slog.Error("Failed to commit migration", "table", tableName, "error", err)
-		return
+		return err
 	}
 
-	if count > 0 {
-		slog.Warn("Old ban entries dropped during migration (no group context). Admins should re-ban per group.",
-			"table", tableName, "dropped_entries", count)
-	}
+	slog.Info("Migrated ban table to global schema", "table", tableName, "jids", migrated)
+	return nil
+}
+
+func quoteSQLiteIdent(name string) string {
+	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
 }

@@ -7,13 +7,12 @@ A modular, high-performance WhatsApp bot built with Go and [whatsmeow](https://g
 | Category             | Commands                                           |
 | -------------------- | -------------------------------------------------- |
 | **Sticker**          | `.s` — Image/Video/GIF → WebP sticker              |
-| **Text Sticker**     | `.ts <text>` — Add meme text to sticker/image      |
 | **Brat Sticker**     | `.brat <text>` — Create a brat-style text sticker  |
 | **Sticker to Image** | `.toimg` — WebP sticker → PNG / View Once retrieval |
 | **Video Downloader** | `.dl <url>` — Download TikTok/IG/YouTube Video     |
 | **Audio Downloader** | `.mp3 <url>` — Download YouTube Audio              |
 | **Group Admin**      | `.tagall`, `.kick`                                 |
-| **User Ban**         | `.bansticker`, `.unbansticker`, `.banimg`, `.unbanimg`   |
+| **User Ban**         | `.bansticker`, `.unbansticker`, `.banimg`, `.unbanimg`, `.banchat`, `.unbanchat` |
 | **Welcome/Goodbye**  | Auto-message on group join/leave                   |
 | **System**           | `.menu`                                            |
 
@@ -99,7 +98,7 @@ chisa_bot/
 │   │   ├── antisticker.go       # .bansticker, etc.
 │   │   ├── downloader.go        # .dl, .mp3
 │   │   ├── group.go             # Welcome/Goodbye, .tagall, .kick
-│   │   ├── media.go             # .s, .toimg, .ts, .brat
+│   │   ├── media.go             # .s, .toimg, .brat
 │   │   ├── menu.go              # .menu
 │   │   └── registry.go          # Command routing mapping
 │   └── services/
@@ -123,6 +122,7 @@ chisa_bot/
 - **Graceful shutdown**: `Ctrl+C` triggers clean disconnection.
 - **Memory limits**: Media downloads are capped at 100MB. Video stickers limited to 8s.
 - **Rate limiting**: Per-user cooldown (3s) and per-chat sliding window (10 commands/min).
+- **Global bans**: User ban commands apply across all groups where the bot is active.
 - **URL validation**: All user-supplied URLs are validated before being passed to external tools.
 - **Logging**: Menggunakan `log/slog` bawaan Go untuk structured logging.
 - **Resilience**: Operasi berat (FFmpeg/yt-dlp) dibatasi oleh `context` timeouts untuk mencegah memory leak.
@@ -144,7 +144,6 @@ RATE_LIMIT_CHAT_MAX=10
 RATE_LIMIT_CHAT_WINDOW_SEC=60
 MAX_FILE_SIZE_MB=100
 MAX_AUDIO_SIZE_MB=50
-MAX_VIDEO_STICKER_SEC=8
 MAX_CONCURRENT_MEDIA_TASKS=4
 ```
 

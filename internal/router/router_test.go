@@ -19,7 +19,7 @@ func TestParse_ValidCommands(t *testing.T) {
 		{"command case insensitive", ".MENU", "menu", nil},
 		{"command mixed case", ".DL https://example.com", "dl", []string{"https://example.com"}},
 		{"sticker shorthand", ".s", "s", nil},
-		{"text sticker with text", ".ts MENGANCAM", "ts", []string{"MENGANCAM"}},
+		{"brat with text", ".brat MENGANCAM", "brat", []string{"MENGANCAM"}},
 		{"leading whitespace", "  .menu", "menu", nil},
 	}
 
@@ -68,16 +68,6 @@ func TestParse_InvalidInputs(t *testing.T) {
 				t.Errorf("Parse(%q) = %+v, want nil", tt.input, result)
 			}
 		})
-	}
-}
-
-func TestParse_RawArgs(t *testing.T) {
-	result := Parse(".dl https://example.com/path?q=1")
-	if result == nil {
-		t.Fatal("Parse returned nil")
-	}
-	if result.RawArgs != "https://example.com/path?q=1" {
-		t.Errorf("RawArgs = %q, want %q", result.RawArgs, "https://example.com/path?q=1")
 	}
 }
 

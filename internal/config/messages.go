@@ -6,7 +6,6 @@ const (
 	MsgOnlyAdmin = "Perintah ini hanya untuk admin grup."
 	MsgMenu      = `
 • .s / .sticker 
-• .ts <text> 
 • .brat <text> 
 • .toimg 
 • .dl <link> 
